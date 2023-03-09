@@ -1,4 +1,4 @@
-name: exxonmobile5
+name: test-exxonmobile
 channels:
   - conda-forge
   - defaults
@@ -260,4 +260,4 @@ dependencies:
       - webencodings==0.5.1
       - websocket-client==1.5.1
       - widgetsnbextension==4.0.5
-prefix: /opt/miniconda3/envs/exxonmobile5
+prefix: /opt/miniconda3/envs/test-exxonmobile
