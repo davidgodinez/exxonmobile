@@ -4,9 +4,6 @@ import datetime
 from pipeline.table_classes import Documents
 
 
-schema = dj.Schema("exxonmobile")
-
-
 class PDFFileLoader:
     def __init__(self, folder_path):
         self.folder_path = folder_path
