@@ -42,8 +42,6 @@ class ConvertedDocuments(dj.Imported):
         
             images = convert_from_path(Path(folder_path,(Documents.fetch('file_name')[document_idx])))
             for i in range(len(images)):
-            # Save pages as images in the pdf
-                # image = images[i].save(f'document{document_idx}_image{i+1}.png', 'PNG')
                 array = np.array(images[i])
                 ConvertedDocuments.Images.insert1(dict(key, image_number=i, image=array), skip_duplicates=True)
                 print(f'saved document{document_idx}_image{i+1}.png')
@@ -69,12 +67,6 @@ class SharpenedImages(dj.Computed):
             for image_idx, image in enumerate(ConvertedDocuments.Images.fetch('image')):
                 data = (ConvertedDocuments.Images & f'document_id={doc_idx}' & f'image_number={image_idx}').fetch1('image')
                 result = unsharp_mask(data, radius=100, amount=10)
-                # sharpened_result = asarray(result)
-                # fig, ax = plt.subplots(figsize=(10,10))
-                # im = plt.imshow(result, cmap=plt.cm.gray)
-                # ax.set_axis_off()
-                # fig.tight_layout()
                 # insert statement here -- insert into part table
                 SharpenedImages.ActualImages.insert1(dict(key, image_number=image_idx, image=result ), skip_duplicates=True)
                 print(f'sharpened document:{doc_idx}, image: {image_idx}')
-                # plt.show()

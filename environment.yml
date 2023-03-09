@@ -212,8 +212,10 @@ dependencies:
       - bleach==6.0.0
       - datajoint==0.14.0
       - defusedxml==0.7.1
+      - exceptiongroup==1.1.0
       - fastjsonschema==2.16.3
       - fqdn==1.5.1
+      - iniconfig==2.0.0
       - ipython-genutils==0.2.0
       - ipywidgets==8.0.4
       - isoduration==20.11.0
@@ -237,8 +239,10 @@ dependencies:
       - pandas==1.5.3
       - pandocfilters==1.5.0
       - pdf2image==1.16.3
+      - pluggy==1.0.0
       - prometheus-client==0.16.0
       - pyrsistent==0.19.3
+      - pytest==7.2.2
       - python-json-logger==2.0.7
       - qtconsole==5.4.0
       - qtpy==2.3.0
@@ -249,6 +253,7 @@ dependencies:
       - soupsieve==2.4
       - terminado==0.17.1
       - tinycss2==1.2.1
+      - tomli==2.0.1
       - tqdm==4.64.1
       - uri-template==1.2.0
       - webcolors==1.12
