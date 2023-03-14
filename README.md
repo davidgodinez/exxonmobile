@@ -10,7 +10,7 @@
  Be sure to set up database credentials setting a username and password. 
 3. Once you have conda installed and a database set up, you can open up your IDE to your project's directory, open terminal, or whatever bash/sh/zsh you prefer and run the following: `conda env create -f environment.yml`. This will create a conda environment with all the required dependencies that will allow you to run your pipeline as a script and serve as your notebook kernel.
 
-# If You can also use toml file to build your environment.
+# You can also use toml file to build your environment using Poetry.
 
 Use the command `poetry run jupyter notebook` to bring up the notebook.
 
