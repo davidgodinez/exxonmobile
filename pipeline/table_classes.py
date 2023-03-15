@@ -1,11 +1,9 @@
 import datajoint as dj
-# from pdf2image import convert_from_path
 import fitz
 import io
 from pathlib import Path
 from PIL import Image
 import numpy as np
-from skimage.filters import unsharp_mask
 import matplotlib.pyplot as plt
 from numpy import asarray
 
