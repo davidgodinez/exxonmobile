@@ -1,5 +1,7 @@
 import datajoint as dj
-from pdf2image import convert_from_path
+# from pdf2image import convert_from_path
+import fitz
+import io
 from pathlib import Path
 from PIL import Image
 import numpy as np
@@ -35,38 +37,20 @@ class ConvertedDocuments(dj.Imported):
         image: longblob
         """
 
-    def make(self, key):    
-        self.insert1(key)
-        for document_idx, document in enumerate(Documents.fetch('file_name')):
-            print(document_idx, '=', document)
-        
-            images = convert_from_path(Path(folder_path,(Documents.fetch('file_name')[document_idx])))
-            for i in range(len(images)):
-                array = np.array(images[i])
-                ConvertedDocuments.Images.insert1(dict(key, image_number=i, image=array), skip_duplicates=True)
-                print(f'saved document{document_idx}_image{i+1}.png')
-        print(f'Finished saving images')
-
-
-@schema 
-class SharpenedImages(dj.Computed):
-    definition = """
-    -> ConvertedDocuments
-    """    
-    class ActualImages(dj.Part):
-        definition = """
-        -> SharpenedImages
-        image_number: int
-        ---
-        image: longblob
-        """
-
     def make(self, key):
-        self.insert1(key)
-        for doc_idx, documents in enumerate((ConvertedDocuments).fetch()):
-            for image_idx, image in enumerate(ConvertedDocuments.Images.fetch('image')):
-                data = (ConvertedDocuments.Images & f'document_id={doc_idx}' & f'image_number={image_idx}').fetch1('image')
-                result = unsharp_mask(data, radius=100, amount=10)
-                # insert statement here -- insert into part table
-                SharpenedImages.ActualImages.insert1(dict(key, image_number=image_idx, image=result ), skip_duplicates=True)
-                print(f'sharpened document:{doc_idx}, image: {image_idx}')
+            self.insert1(key)
+            for document_idx, document in enumerate(Documents.fetch('file_name')):
+                print(document_idx, '=', document)
+                doc = fitz.open(Path(folder_path,(Documents.fetch('file_name')[document_idx])))
+                for page_number in range(len(doc)):
+                    page = doc.load_page(page_number)
+                    pix = page.get_pixmap(alpha=False)
+
+                    # Save pixmap as a PNG image in memory
+                    buffer = io.BytesIO()
+                    img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
+                    img.save(buffer, format='PNG')
+
+                    # Store the PNG image as a longblob in the table
+                    ConvertedDocuments.Images.insert1(dict(key, image_number=page_number + 1, image=buffer.getvalue()))
+
