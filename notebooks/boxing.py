@@ -28,13 +28,3 @@ def draw(img, cnts):
         cv2.rectangle(img, (x, y), (x + w, y + h), (36,255,12), 2)
         cv2.imshow('image', img)
         cv2.waitKey()
-
-
-
-
-
-cv2.imshow('thresh', thresh)
-cv2.imshow("compare", compare)
-cv2.imshow('dilate', dilate)
-cv2.imshow('image', image)
-cv2.waitKey()
