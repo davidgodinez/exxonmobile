@@ -1,7 +1,7 @@
 import os
 import datajoint as dj
 import datetime
-from pipeline.table_classes import Documents
+from table_classes import Documents
 
 
 class PDFFileLoader:
