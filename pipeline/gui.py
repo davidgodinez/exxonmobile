@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
-from dataloader import dataloader, full_image_shower, box_shower
+from dataloader import dataloader, full_image_shower, box_shower, full_image_with_boxes_shower
 from table_classes import BoxedImages
 
 def dataloader_btn():
@@ -15,6 +15,15 @@ def full_image_shower_btn():
         full_image_shower(document_id, image_number)
     except ValueError:
         messagebox.showerror("Error", "Invalid input for document_id or image_number")
+
+def full_image_with_boxes_shower_btn():
+    try:
+        document_id = int(document_id_entry.get())
+        image_number = int(image_number_entry.get())
+        full_image_with_boxes_shower(document_id, image_number)
+    except ValueError:
+        messagebox.showerror("Error", "Invalid input for document_id or image_number")
+
 
 def box_shower_btn():
     try:
@@ -64,6 +73,8 @@ image_number_label = tk.Label(root, text="Image Number:")
 image_number_entry = tk.Entry(root)
 
 full_image_shower_button = tk.Button(root, text="Show Full Image", command=full_image_shower_btn)
+full_image_with_boxes_shower_button = tk.Button(root, text="Show Full Image with Boxes", command=full_image_with_boxes_shower_btn)
+
 
 box_number_label = tk.Label(root, text="Box Number:")
 box_number_entry = tk.Entry(root)
@@ -86,6 +97,8 @@ image_number_label.pack()
 image_number_entry.pack()
 
 full_image_shower_button.pack(pady=10)
+full_image_with_boxes_shower_button.pack(pady=10)
+
 
 box_number_label.pack()
 box_number_entry.pack()

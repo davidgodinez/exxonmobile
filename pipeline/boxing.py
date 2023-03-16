@@ -22,9 +22,16 @@ def boxing(img):
 
 
 def draw(img, cnts):
-
     for c in cnts:
-        x,y,w,h = cv2.boundingRect(c)
+        x, y, w, h = cv2.boundingRect(c)
         cv2.rectangle(img, (x-2, y-2), (x + w + 2, y + h + 2), (0, 255, 0), 2)
+
+    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
     cv2.imshow('image', img)
-    cv2.waitKey()
+
+    while True:
+        key = cv2.waitKeyEx(1)
+        if key == 0x250000:  # Check for the close button event
+            break
+
+    cv2.destroyAllWindows()
