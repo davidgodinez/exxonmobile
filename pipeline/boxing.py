@@ -1,9 +1,6 @@
 import cv2
 import numpy as np
 
-
-
-
 def boxing(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     blur = cv2.GaussianBlur(gray, (7,7), 0)
@@ -28,5 +25,3 @@ def draw(img, cnts):
         cv2.rectangle(img, (x, y), (x + w, y + h), (36,255,12), 2)
     cv2.imshow('image', img)
     cv2.waitKey()
-
-

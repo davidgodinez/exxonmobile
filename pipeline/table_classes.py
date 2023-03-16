@@ -6,6 +6,9 @@ from PIL import Image
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy import asarray
+import cv2
+from io import BytesIO
+from boxing import boxing
 
 schema = dj.Schema("exxonmobile")
 folder_path = '../files'
@@ -52,3 +55,38 @@ class ConvertedDocuments(dj.Imported):
                     # Store the PNG image as a longblob in the table
                     ConvertedDocuments.Images.insert1(dict(key, image_number=page_number + 1, image=buffer.getvalue()))
 
+
+
+@schema
+class BoxedImages(dj.Imported):
+    definition = """
+    -> ConvertedDocuments.Images   # using ConvertedDocuments.Images primary key as foreign key
+    """
+    
+    class BoxedImageBlobs(dj.Part):
+        definition = """
+        -> BoxedImages
+        box_number: int
+        ---
+        boxed_image: longblob
+        """
+
+    def make(self, key):
+        image_blob = (ConvertedDocuments.Images & key).fetch1('image')
+        image = cv2.imdecode(np.frombuffer(image_blob, np.uint8), cv2.IMREAD_COLOR)
+        cnts = boxing(image)
+
+        # Insert the key into the BoxedImages table
+        self.insert1(key)
+
+        for idx, c in enumerate(cnts):
+            x, y, w, h = cv2.boundingRect(c)
+            boxed_image = image[y:y + h, x:x + w]
+
+            # Save the boxed image as a PNG in memory
+            boxed_buffer = BytesIO()
+            boxed_image_pil = Image.fromarray(cv2.cvtColor(boxed_image, cv2.COLOR_BGR2RGB))
+            boxed_image_pil.save(boxed_buffer, format='PNG')
+
+            # Store the boxed image in the BoxedImageBlobs table
+            BoxedImages.BoxedImageBlobs.insert1(dict(key, box_number=idx + 1, boxed_image=boxed_buffer.getvalue()))
