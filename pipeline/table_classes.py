@@ -74,6 +74,7 @@ class BoxedImages(dj.Imported):
     class BoxedImageComments(dj.Part):
         definition = """
         -> BoxedImages.BoxedImageBlobs
+        comment_timestamp: datetime   # unique timestamp for each comment
         ---
         comment: varchar(1000)
         """

@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime
 from dataloader import dataloader, full_image_shower, box_shower
 from table_classes import BoxedImages
 
@@ -35,16 +36,19 @@ def submit_comment_btn():
             'document_id': document_id,
             'image_number': image_number,
             'box_number': box_number,
+            'comment_timestamp': datetime.now(),  # insert current timestamp
             'comment': comment,
         }
 
         # Insert the comment into the BoxedImages.BoxedImageComments table
-        BoxedImages.BoxedImageComments.insert1(key, skip_duplicates=True)
+        BoxedImages.BoxedImageComments.insert1(key)
 
         messagebox.showinfo("Info", f"Comment submitted: {comment}")
         # Add any processing or saving functionality here
     else:
         messagebox.showerror("Error", "Please enter a comment")
+
+
 
 
 root = tk.Tk()
