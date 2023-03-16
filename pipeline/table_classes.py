@@ -71,6 +71,13 @@ class BoxedImages(dj.Imported):
         boxed_image: longblob
         """
 
+    class BoxedImageComments(dj.Part):
+        definition = """
+        -> BoxedImages.BoxedImageBlobs
+        ---
+        comment: varchar(1000)
+        """
+
     def make(self, key):
         image_blob = (ConvertedDocuments.Images & key).fetch1('image')
         image = cv2.imdecode(np.frombuffer(image_blob, np.uint8), cv2.IMREAD_COLOR)
