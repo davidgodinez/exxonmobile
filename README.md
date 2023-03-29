@@ -13,7 +13,8 @@
 1. Ensure that your `dj_local_conf.json` file has been updated to reflect your database credentials. This will make it easier everytime as it will essentially autofill your credentials for you whenever you restart your kernel.
 2. You can modify the `schema` but ensure that this is consistent across all files the require the schema.
 
-## Preparing/running the notebook
+## The GUI
+1. The GUI will be your main tool in this repo. 
+## The notebook
 
-1. Ensure that the third cell containing the line `folder_path = '</folder/path/to/files>'` has been updated to reflect the path where your files are stored. 
-2. Run the command `poetry run jupyter notebook`
+1. This notebook can be run after interacting with the notebook and can be used to examin the contents of the database, namely the comments inserted from the GUI. 
