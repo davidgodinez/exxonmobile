@@ -6,6 +6,7 @@ from table_classes import ConvertedDocuments, BoxedImages
 from boxing import boxing, draw
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def dataloader():
@@ -67,6 +68,28 @@ def full_image_with_boxes_shower(document_id, image_number):
 
     # Show the image with boxes
     pil_image_with_boxes.show()
+
+def boxed_paragraph_shower(document_id, image_number, paragraph_number):
+    full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
+    boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
+    
+    boxed_paragraph_blob = (BoxedImages.BoxedParagraphBlobs & {'document_id': document_id, 'image_number': image_number, 'paragraph_number': paragraph_number}).fetch1('boxed_paragraph')
+    boxed_paragraph_pil = Image.open(io.BytesIO(boxed_paragraph_blob))
+    
+    fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+    axes[0].imshow(boxed_image_pil)
+    axes[0].set_title("Full Image with Boxes")
+    axes[0].axis("off")
+    
+    axes[1].imshow(boxed_paragraph_pil)
+    axes[1].set_title(f"Paragraph {paragraph_number}")
+    axes[1].axis("off")
+    
+    plt.show()
+
+
+
+
 
 
 if __name__ == '__main__':
