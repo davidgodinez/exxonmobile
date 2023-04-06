@@ -46,28 +46,24 @@ def show_image_with_boxes(image):
     return Image.fromarray(img_rgb)
 
 
+def full_image_with_boxes_shower(document_id, image_number, scale_factor=2.0):
+    full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
+    boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
+    
+    # Resize the image
+    new_width = int(boxed_image_pil.width * scale_factor)
+    new_height = int(boxed_image_pil.height * scale_factor)
+    resized_image = boxed_image_pil.resize((new_width, new_height), Image.ANTIALIAS)
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(resized_image)
+    ax.set_title("Full Image with Boxes")
+    ax.axis("off")
+    
+    plt.show()
 
-def full_image_with_boxes_shower(document_id, image_number):
-    # Load the image from the database
-    image = (ConvertedDocuments.Images & f'document_id={document_id}' & f'image_number={image_number}').fetch1('image')
-    pil_image = Image.open(io.BytesIO(image))
 
-    # Convert the PIL image to an OpenCV image (BGR format)
-    cv2_image = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
 
-    # Get the contours using boxing function
-    contours = boxing(cv2_image)
-
-    # Draw the contours as rectangles on the image
-    for c in contours:
-        x, y, w, h = cv2.boundingRect(c)
-        cv2.rectangle(cv2_image, (x, y), (x+w, y+h), (0, 255, 0), 2)
-
-    # Convert the OpenCV image back to a PIL.Image (RGB format)
-    pil_image_with_boxes = Image.fromarray(cv2.cvtColor(cv2_image, cv2.COLOR_BGR2RGB))
-
-    # Show the image with boxes
-    pil_image_with_boxes.show()
 
 def boxed_paragraph_shower(document_id, image_number, paragraph_number):
     full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
