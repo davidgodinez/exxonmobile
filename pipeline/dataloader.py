@@ -21,10 +21,21 @@ def dataloader():
     print('Populate complete!')
 
 
-def full_image_shower(document_id, image_number):
+def full_image_shower(document_id, image_number, scale_factor=2.0):
     image = (ConvertedDocuments.Images & f'document_id={document_id}' & f'image_number={image_number}').fetch1('image')
-    boxed_image = Image.open(io.BytesIO(image))
-    boxed_image.show()
+    boxed_image_pil = Image.open(io.BytesIO(image))
+    
+    # Resize the image
+    new_width = int(boxed_image_pil.width * scale_factor)
+    new_height = int(boxed_image_pil.height * scale_factor)
+    resized_image = boxed_image_pil.resize((new_width, new_height), Image.ANTIALIAS)
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(resized_image)
+    ax.set_title("Full Image with Boxes")
+    ax.axis("off")
+    
+    plt.show()
 
 
 def box_shower(document_id, image_number, box_number, scale_factor=2):
