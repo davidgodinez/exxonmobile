@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+dj_local_conf.json
+files/processed_images
+files/unprocessed_images
+.DS_Store
+notebooks/*.zip
+notebooks/easy-ocr-tutorial
