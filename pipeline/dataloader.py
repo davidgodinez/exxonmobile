@@ -1,5 +1,5 @@
 import os
-from PIL import Image
+from PIL import Image, ImageDraw
 import io
 from PDFloader import PDFFileLoader
 from table_classes import ConvertedDocuments, BoxedImages
@@ -7,6 +7,7 @@ from boxing import boxing, draw
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 
 
 def dataloader():
@@ -38,23 +39,25 @@ def full_image_shower(document_id, image_number, scale_factor=2.0):
     plt.show()
 
 
-def box_shower(document_id, image_number, box_number, scale_factor=2):
-    image = (BoxedImages.BoxedImageBlobs & f'document_id={document_id}' & f'image_number={image_number}' & f'box_number={box_number}').fetch1('boxed_image')
-    boxed_image = Image.open(io.BytesIO(image))
+def box_shower(document_id, image_number, box_number):
+    full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
+    boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
     
-    # Enlarge the image by the specified scale factor
-    width, height = boxed_image.size
-    enlarged_image = boxed_image.resize((width * scale_factor, height * scale_factor), Image.ANTIALIAS)
+    boxed_image_blob = (BoxedImages.BoxedImageBlobs & {'document_id': document_id, 'image_number': image_number, 'box_number': box_number}).fetch1('boxed_image')
+    ocr_prob = (BoxedImages.BoxedImageBlobs & {'document_id': document_id, 'image_number': image_number, 'box_number': box_number}).fetch1('ocr_prob')
+    boxed_image = Image.open(io.BytesIO(boxed_image_blob))
     
-    enlarged_image.show()
+    fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+    axes[0].imshow(boxed_image_pil)
+    axes[0].set_title("Full Image with Boxes")
+    axes[0].axis("off")
+    
+    axes[1].imshow(boxed_image)
+    axes[1].set_title(f"Box {box_number} - OCR Probability: {ocr_prob:.2f}")
+    axes[1].axis("off")
+    
+    plt.show()
 
-
-def show_image_with_boxes(image):
-    img = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-    cnts = boxing(img)
-    draw(img, cnts)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    return Image.fromarray(img_rgb)
 
 
 def full_image_with_boxes_shower(document_id, image_number, scale_factor=2.0):
@@ -74,8 +77,6 @@ def full_image_with_boxes_shower(document_id, image_number, scale_factor=2.0):
     plt.show()
 
 
-
-
 def boxed_paragraph_shower(document_id, image_number, paragraph_number):
     full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
     boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
@@ -93,6 +94,25 @@ def boxed_paragraph_shower(document_id, image_number, paragraph_number):
     axes[1].axis("off")
     
     plt.show()
+
+
+
+def export_to_json(document_id, image_number):
+    # Get the full_text from the BoxedImages table
+    full_text = (BoxedImages & f'document_id={document_id}' & f'image_number={image_number}').fetch1('full_text')
+    
+    # Create a dictionary to store the data
+    data = {
+        'document_id': document_id,
+        'image_number': image_number,
+        'full_text': full_text
+    }
+    
+    # Export the data to a JSON file
+    filename = f"document_{document_id}_image_{image_number}.json"
+    with open(filename, 'w') as f:
+        json.dump(data, f, indent=4)
+
 
 
 

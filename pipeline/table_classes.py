@@ -66,6 +66,7 @@ class BoxedImages(dj.Imported):
     -> ConvertedDocuments.Images   # using ConvertedDocuments.Images primary key as foreign key
     ---
     full_boxed_image: longblob # full boxed image
+    full_text: varchar(10000) # full text
     """
     
     class BoxedImageBlobs(dj.Part):
@@ -138,8 +139,14 @@ class BoxedImages(dj.Imported):
         full_boxed_image_pil = Image.fromarray(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
         full_boxed_image_pil.save(full_boxed_buffer, format='PNG')
 
+        # saving the full text as a string 
+        final_string = ''
+        for text in range(len(results)):
+            # concatenate the text 
+            final_string += results[text][1] + ' '
+
         # Insert the key and the full boxed image into the BoxedImages table
-        self.insert1(dict(key, full_boxed_image=full_boxed_buffer.getvalue()))
+        self.insert1(dict(key, full_boxed_image=full_boxed_buffer.getvalue(), full_text=final_string))
 
         # Loop over the results and store each boxed image with the box, text, and probability
         for idx, (bbox, text, prob) in enumerate(results):
