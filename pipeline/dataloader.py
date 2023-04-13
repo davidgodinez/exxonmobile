@@ -96,15 +96,29 @@ def boxed_paragraph_shower(document_id, image_number, paragraph_number):
     plt.show()
 
 
+def average_ocr_prob(document, image):
+    # Fetch the OCR probabilities for the given document and image
+    ocr_probs = (BoxedImages.BoxedImageBlobs & f"document_id={document}" & f"image_number={image}").fetch('ocr_prob')
+
+    # Calculate and return the average OCR probability
+    if len(ocr_probs) > 0:
+        return sum(ocr_probs) / len(ocr_probs)
+    else:
+        return 0
+
+
+
 
 def export_to_json(document_id, image_number):
     # Get the full_text from the BoxedImages table
     full_text = (BoxedImages & f'document_id={document_id}' & f'image_number={image_number}').fetch1('full_text')
+
     
     # Create a dictionary to store the data
     data = {
         'document_id': document_id,
         'image_number': image_number,
+        'average_ocr_prob': average_ocr_prob(document=document_id, image=image_number),
         'full_text': full_text
     }
     
