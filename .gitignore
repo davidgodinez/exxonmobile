@@ -128,5 +128,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 dj_local_conf.json
-
 credentials.json
