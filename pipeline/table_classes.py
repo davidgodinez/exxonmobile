@@ -7,7 +7,7 @@ from PIL import Image
 import numpy as np
 import cv2
 from easyocr import Reader
-
+import json
 
 schema = dj.Schema("exxonmobile")
 folder_path = '../files'
@@ -86,6 +86,8 @@ class BoxedImages(dj.Imported):
         paragraph_number: int
         ---
         boxed_paragraph: longblob
+        ocr_text: varchar(10000)
+        ocr_prob: float
         """
 
 
@@ -216,32 +218,226 @@ class BoxedImages(dj.Imported):
 
         # Debugging: Print the paragraph regions
         print("Paragraph regions:", paragraph_regions)
-
+        # Inside the make function
         for idx, region in enumerate(paragraph_regions):
             ptl_y, pbr_y = region
 
             # Find the x coordinates for the region
             x_min, x_max = find_x_coordinates(results, region)
 
-            # Debugging: Print the top-left and bottom-right coordinates
-            print("Top-left:", x_min, ptl_y, "Bottom-right:", x_max, pbr_y)
-
             ptl = (int(x_min) - padding, int(ptl_y) - padding)
             pbr = (int(x_max) + padding, int(pbr_y) + padding)
 
             boxed_paragraph = image[ptl[1]:pbr[1], ptl[0]:pbr[0]]
 
+            # Extract the ocr_text and ocr_prob for the paragraph
+            paragraph_text = []
+            paragraph_prob = []
+            for bbox, text, prob in results:
+                (tl, tr, br, bl) = bbox
+                top = min(tl[1], tr[1])
+                bottom = max(br[1], bl[1])
 
+                if top >= ptl_y and bottom <= pbr_y:
+                    paragraph_text.append(text)
+                    paragraph_prob.append(prob)
 
-        # Convert the boxed_paragraph NumPy array back to a PIL image
+            # Combine the paragraph text and calculate the average probability
+            combined_text = ' '.join(paragraph_text)
+            avg_prob = sum(paragraph_prob) / len(paragraph_prob) if paragraph_prob else 0
+
+            # Convert the boxed_paragraph NumPy array back to a PIL image
             boxed_paragraph_pil = Image.fromarray(cv2.cvtColor(boxed_paragraph, cv2.COLOR_BGR2RGB))
 
             # Save the PIL image as a PNG in memory
             boxed_paragraph_buffer = BytesIO()
             boxed_paragraph_pil.save(boxed_paragraph_buffer, format='PNG')
 
-            # Store the PNG image in the BoxedImages.BoxedParagraphBlobs table
+            # Store the PNG image, ocr_text, and ocr_prob in the BoxedImages.BoxedParagraphBlobs table
             BoxedImages.BoxedParagraphBlobs.insert1(dict(key, paragraph_number=idx + 1,
-                                                        boxed_paragraph=boxed_paragraph_buffer.getvalue()))
+                                                        boxed_paragraph=boxed_paragraph_buffer.getvalue(),
+                                                        ocr_text=combined_text,
+                                                        ocr_prob=avg_prob))
 
 
+
+
+import os
+import io
+import json
+import time
+from msrest.authentication import CognitiveServicesCredentials
+from azure.cognitiveservices.vision.computervision import ComputerVisionClient
+from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes, VisualFeatureTypes
+import requests
+from PIL import Image, ImageDraw, ImageFont
+import base64
+
+
+
+@schema
+class AzureBoxedImages(dj.Imported):
+    definition = """
+    -> ConvertedDocuments.Images   # using ConvertedDocuments.Images primary key as foreign key
+    ---
+    full_boxed_image: longblob  # full boxed image
+    full_text: varchar(10000)    # full text
+    """
+
+    class AzureBoxedImageBlobs(dj.Part):
+        definition = """
+        -> AzureBoxedImages
+        box_number: int
+        ---
+        boxed_image: longblob
+        ocr_text: varchar(1000)
+        ocr_prob: float
+        """
+
+    class AzureBoxedImageComments(dj.Part):
+        definition = """
+        -> AzureBoxedImages.AzureBoxedImageBlobs
+        comment_timestamp: datetime   # unique timestamp for each comment
+        ---
+        comment: varchar(1000)
+        """
+
+    class AzureBoxedParagraphBlobs(dj.Part):
+        definition = """
+        -> AzureBoxedImages
+        paragraph_number: int
+        ---
+        boxed_paragraph: longblob
+        ocr_text: varchar(10000)
+        ocr_prob: float
+        """
+
+    class AzureBoxedParagraphComments(dj.Part):
+        definition = """
+        -> AzureBoxedImages.AzureBoxedParagraphBlobs
+        comment_timestamp: datetime   # unique timestamp for each comment
+        ---
+        comment: varchar(1000)
+        """
+
+
+
+    @staticmethod
+    def azure_image_processing(document_id, image_number):
+        print("Loading credentials...")
+        credential = json.load(open('../credentials.json'))
+        API_KEY = credential['API_KEY']
+        END_POINT = credential['END_POINT']
+
+        print("Initializing Computer Vision Client...")
+        cv_client = ComputerVisionClient(END_POINT, CognitiveServicesCredentials(API_KEY))
+
+        print("Fetching image from database...")
+        image_blob = (ConvertedDocuments.Images & f'document_id={document_id}' & f'image_number={image_number}').fetch1('image')
+        image = Image.open(io.BytesIO(image_blob))
+
+        print("Sending image for processing...")
+        response = cv_client.read_in_stream(io.BytesIO(image_blob), Language="en", raw=True)
+        operationLocation = response.headers['Operation-Location']
+        operation_id = operationLocation.split('/')[-1]
+
+        print("Waiting for the results...")
+        time.sleep(10)
+
+        print("Fetching results...")
+        result = cv_client.get_read_result(operation_id)
+
+        draw = ImageDraw.Draw(image)
+
+        font = ImageFont.load_default()  # Use the built-in font
+
+        metadata = {
+            "document_id": document_id,
+            "image_number": image_number,
+            "texts": [],
+            "paragraphs": []
+        }
+
+        if result.status == OperationStatusCodes.succeeded:
+            read_results = result.analyze_result.read_results
+            for analyzed_result in read_results:
+                for line in analyzed_result.lines:
+                    for i, word in enumerate(line.words):
+                        x1, y1, x2, y2, x3, y3, x4, y4 = word.bounding_box
+                        draw.line(
+                            ((x1, y1), (x2, y1), (x2, y2), (x3, y2), (x3, y3), (x4, y3), (x4, y4), (x1, y4), (x1, y1)),
+                            fill=(255, 0, 0),
+                            width=2
+                        )
+                        text = f"{word.text} ({word.confidence * 100:.1f}%)"
+                        draw.text((word.bounding_box[0], word.bounding_box[1] - 20), text, font=font, fill=(255, 0, 0))
+                        boxed_image = image.crop((x1, y1, x3, y3))
+                        boxed_image_buffer = io.BytesIO()
+                        boxed_image.save(boxed_image_buffer, format='PNG')
+                        boxed_image_encoded = base64.b64encode(boxed_image_buffer.getvalue())
+
+                        metadata["texts"].append({
+                            "box_number": i + 1,
+                            "text": word.text,
+                            "probability": word.confidence * 100,
+                            "boxed_image": boxed_image_encoded.decode('utf-8')
+                        })
+
+
+        print("Saving results...")
+        full_boxed_image = image.convert('RGB')
+        full_text = ' '.join([item['text'] for item in metadata['texts']])
+
+        with open('metadata.json', 'w') as f:
+            json.dump(metadata, f, indent=2)
+        print("Finished.")
+
+        return full_boxed_image, full_text, metadata
+
+
+
+    def make(self, key):
+        # Load the image from the key
+        image_blob = (ConvertedDocuments.Images & key).fetch1('image')
+        image = Image.open(io.BytesIO(image_blob))
+
+        # Call the Azure OCR function
+        metadata = self.azure_image_processing(key['document_id'], key['image_number'])
+
+        # Extract the full_text from the metadata
+        full_text = ' '.join([text_info['text'] for text_info in metadata[2]['texts']])
+        # Save the full_boxed_image
+        full_boxed_image = metadata[0]
+        full_boxed_buffer = BytesIO()
+        full_boxed_image.save(full_boxed_buffer, format='PNG')
+
+        # Insert the key, full_boxed_image, and full_text into the AzureBoxedImages table
+        self.insert1(dict(key, full_boxed_image=full_boxed_buffer.getvalue(), full_text=full_text))
+
+        # Insert the boxed image blobs and their respective OCR text and probability
+        for idx, text_info in enumerate(metadata[2]['texts']):
+            boxed_image_key = dict(
+                key,
+                box_number=idx + 1,
+                boxed_image=text_info['boxed_image'],
+                ocr_text=text_info['text'],
+                ocr_prob=text_info['probability']
+            )
+            AzureBoxedImages.AzureBoxedImageBlobs.insert1(boxed_image_key)
+
+        # Insert the boxed paragraph blobs and their respective OCR text and probability
+        # You need to update the azure_image_processing function to return the paragraph information.
+        # In this example, we assume that the metadata has a new key 'paragraphs' that stores the paragraph information.
+        # for idx, paragraph_info in enumerate(metadata['paragraphs']):
+        #     boxed_paragraph_key = dict(
+        #         key,
+        #         paragraph_number=idx + 1,
+        #         ocr_text=paragraph_info['text'],
+        #         ocr_prob=paragraph_info['probability']
+        #     )
+
+        #     # You can either store the individual boxed_paragraph using the coordinates from the Azure OCR result
+        #     # or leave it out if you only need the OCR text and probability.
+        #     # To store the individual boxed_paragraph, you need to modify the azure_image_processing function to return the bounding box information.
+
+        #     AzureBoxedImages.AzureBoxedParagraphBlobs.insert1(boxed_paragraph_key)

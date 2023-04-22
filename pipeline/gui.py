@@ -5,6 +5,77 @@ from dataloader import dataloader, full_image_shower, box_shower, full_image_wit
 from table_classes import BoxedImages
 from dataloader_azure import azure_image_processing
 from dataloader_aws import aws_textract_processing
+from tkinter import messagebox
+from datetime import datetime
+
+
+def search_word():
+    search_term = search_entry.get()
+    if not search_term:
+        messagebox.showwarning("Warning", "Please enter a search term.")
+        return
+
+    search_terms = search_term.lower().split()
+
+    # Query the BoxedImages.BoxedImageBlobs and BoxedImages.BoxedParagraphBlobs tables for the search terms
+    try:
+        boxed_image_results = BoxedImages.BoxedImageBlobs.fetch("ocr_text")
+        boxed_paragraph_results = BoxedImages.BoxedParagraphBlobs.fetch("ocr_text")
+        matches = set()
+
+        for idx, ocr_text in enumerate(boxed_image_results):
+            ocr_text_lower = ocr_text.lower()
+            if all(term in ocr_text_lower for term in search_terms):
+                document_ids, image_numbers, box_numbers = BoxedImages.BoxedImageBlobs.fetch("document_id", "image_number", "box_number")
+                document_id = document_ids[idx]
+                image_number = image_numbers[idx]
+                box_number = box_numbers[idx]
+                matches.add((document_id, image_number, box_number, "Box"))
+
+        for idx, ocr_text in enumerate(boxed_paragraph_results):
+            ocr_text_lower = ocr_text.lower()
+            if all(term in ocr_text_lower for term in search_terms):
+                document_ids, image_numbers, paragraph_numbers = BoxedImages.BoxedParagraphBlobs.fetch("document_id", "image_number", "paragraph_number")
+                document_id = document_ids[idx]
+                image_number = image_numbers[idx]
+                paragraph_number = paragraph_numbers[idx]
+                matches.add((document_id, image_number, paragraph_number, "Paragraph"))
+
+        if matches:
+            result_string = "Matches found in:\n"
+            for document_id, image_number, item_number, item_type in matches:
+                result_string += f"Document ID: {document_id}, Image: {image_number}, {item_type}: {item_number}\n"
+        else:
+            result_string = "No matches found."
+
+        result_text.set(result_string)
+
+        for child in scrollable_frame.winfo_children():
+            child.destroy()
+
+        for result in result_string.split('\n'):
+            result_label = tk.Label(scrollable_frame, text=result, wraplength=380, justify="center")
+            result_label.pack(anchor="w")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred while searching: {e}")
+
+
+def create_scrollable_frame(parent):
+    canvas = tk.Canvas(parent)
+    scrollbar = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+    scrollable_frame = tk.Frame(canvas)
+
+    scrollable_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+    canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+
+    return scrollable_frame
+
+
 
 def dataloader_btn():
     dataloader()
@@ -115,7 +186,7 @@ image_number_entry = tk.Entry(root)
 
 full_image_shower_button = tk.Button(root, text="Show Full Image", command=full_image_shower_btn)
 full_image_with_boxes_shower_button = tk.Button(root, text="Show Full Image with Boxes (CRAFT-Pytorch)", command=full_image_with_boxes_shower_btn)
-azure_processing_button = tk.Button(root, text="Show Full Image with Boxes (Azure)", command=full_azure_image_processing_btn)
+azure_processing_button = tk.Button(root, text="Show Full Image with Boxes (Azure Computer Vision)", command=full_azure_image_processing_btn)
 aws_textract_processing_button = tk.Button(root, text="Show Full Image with Boxes (AWS Textract)", command=full_aws_textract_processing_btn)
 
 
@@ -142,6 +213,14 @@ item_number_label = tk.Label(root, text="Item Number:")
 item_number_entry = tk.Entry(root)
 
 submit_comment_button = tk.Button(root, text="Submit Comment", command=submit_comment_btn)
+
+# Create search widgets
+search_label = tk.Label(root, text="Search for word(s):")
+search_entry = tk.Entry(root)
+search_button = tk.Button(root, text="Search", command=search_word)
+
+result_text = tk.StringVar()
+result_label = tk.Label(root, textvariable=result_text, wraplength=400)
 
 # Place widgets on the window
 dataloader_button.pack(pady=10)
@@ -178,6 +257,13 @@ item_number_label.pack()
 item_number_entry.pack()
 
 submit_comment_button.pack(pady=10)
+
+
+# Place search widgets on the window
+search_label.pack()
+search_entry.pack()
+search_button.pack(pady=10)
+scrollable_frame = create_scrollable_frame(root)
 
 root.mainloop()
 

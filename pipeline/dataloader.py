@@ -2,7 +2,7 @@ import os
 from PIL import Image, ImageDraw
 import io
 from PDFloader import PDFFileLoader
-from table_classes import ConvertedDocuments, BoxedImages
+from table_classes import ConvertedDocuments, BoxedImages, AzureBoxedImages
 from boxing import boxing, draw
 import cv2
 import numpy as np
@@ -19,7 +19,8 @@ def dataloader():
     print('ConvertedDocuments populated')
     BoxedImages.populate()
     print('BoxedImages populated')
-    print('Populate complete!')
+    AzureBoxedImages.populate()
+    print('AzureBoxedImages populated!')
 
 
 def full_image_shower(document_id, image_number, scale_factor=2.0):
@@ -126,6 +127,40 @@ def export_to_json(document_id, image_number):
     filename = f"document_{document_id}_image_{image_number}.json"
     with open(filename, 'w') as f:
         json.dump(data, f, indent=4)
+
+
+
+# def export_to_json(document_id, image_number):
+#     # Get the full_text from the BoxedImages table
+#     full_text = (BoxedImages & f'document_id={document_id}' & f'image_number={image_number}').fetch1('full_text')
+
+#     # Fetch ocr_text and ocr_prob from the BoxedImages.BoxedImageBlobs table
+#     try:
+#         boxed_image_blobs = (BoxedImages.BoxedImageBlobs & f'document_id={document_id}' & f'image_number={image_number}').fetch('ocr_text', 'ocr_prob')
+#     except Exception as e:
+#         print(f"Error fetching ocr_text and ocr_prob: {e}")
+#         return
+
+#     # Calculate the average OCR probability
+#     avg_ocr_proba = average_ocr_prob(document=document_id, image=image_number)
+
+#     # Create a dictionary to store the data
+#     data = {
+#         'document_id': document_id,
+#         'image_number': image_number,
+#         'average_ocr_prob': avg_ocr_proba,
+#         'full_text': full_text,
+#         'texts': [{'text': text, 'probability': prob} for text, prob in boxed_image_blobs]
+#     }
+
+#     # Export the data to a JSON file
+#     filename = f"document_{document_id}_image_{image_number}.json"
+#     with open(filename, 'w') as f:
+#         json.dump(data, f, indent=4)
+
+
+
+
 
 
 
