@@ -261,7 +261,6 @@ class BoxedImages(dj.Imported):
 
 
 
-
 import os
 import io
 import json
@@ -272,7 +271,6 @@ from azure.cognitiveservices.vision.computervision.models import OperationStatus
 import requests
 from PIL import Image, ImageDraw, ImageFont
 import base64
-
 
 
 @schema
@@ -321,9 +319,37 @@ class AzureBoxedImages(dj.Imported):
         """
 
 
-
-    @staticmethod
     def azure_image_processing(document_id, image_number):
+        def group_lines_into_paragraphs(lines, threshold=50):
+            paragraphs = []
+            current_paragraph = []
+
+            for i, line in enumerate(lines):
+                if i == 0:
+                    current_paragraph.append(line)
+                    continue
+
+                prev_line = lines[i - 1]
+                prev_line_y = (prev_line.bounding_box[1] + prev_line.bounding_box[5]) / 2
+                current_line_y = (line.bounding_box[1] + line.bounding_box[5]) / 2
+
+                if abs(current_line_y - prev_line_y) <= threshold:
+                    current_paragraph.append(line)
+                else:
+                    paragraphs.append(current_paragraph)
+                    current_paragraph = [line]
+
+            if current_paragraph:
+                paragraphs.append(current_paragraph)
+
+            # Ensure that each paragraph contains a list of lines
+            for i, paragraph in enumerate(paragraphs):
+                if not isinstance(paragraph, list):
+                    paragraphs[i] = [paragraph]
+
+            return paragraphs
+
+        
         print("Loading credentials...")
         credential = json.load(open('../credentials.json'))
         API_KEY = credential['API_KEY']
@@ -355,33 +381,45 @@ class AzureBoxedImages(dj.Imported):
             "document_id": document_id,
             "image_number": image_number,
             "texts": [],
-            "paragraphs": []
+            "paragraphs": [],
+            "lines": []
         }
+
 
         if result.status == OperationStatusCodes.succeeded:
             read_results = result.analyze_result.read_results
             for analyzed_result in read_results:
-                for line in analyzed_result.lines:
-                    for i, word in enumerate(line.words):
-                        x1, y1, x2, y2, x3, y3, x4, y4 = word.bounding_box
-                        draw.line(
-                            ((x1, y1), (x2, y1), (x2, y2), (x3, y2), (x3, y3), (x4, y3), (x4, y4), (x1, y4), (x1, y1)),
-                            fill=(255, 0, 0),
-                            width=2
-                        )
-                        text = f"{word.text} ({word.confidence * 100:.1f}%)"
-                        draw.text((word.bounding_box[0], word.bounding_box[1] - 20), text, font=font, fill=(255, 0, 0))
-                        boxed_image = image.crop((x1, y1, x3, y3))
-                        boxed_image_buffer = io.BytesIO()
-                        boxed_image.save(boxed_image_buffer, format='PNG')
-                        boxed_image_encoded = base64.b64encode(boxed_image_buffer.getvalue())
+                lines = analyzed_result.lines
+                paragraphs = group_lines_into_paragraphs(lines)
 
-                        metadata["texts"].append({
-                            "box_number": i + 1,
-                            "text": word.text,
-                            "probability": word.confidence * 100,
-                            "boxed_image": boxed_image_encoded.decode('utf-8')
+                for paragraph in paragraphs:
+                    x1, y1, x2, y2, x3, y3, x4, y4 = [min(line.bounding_box[0] for line in paragraph),
+                                                    min(line.bounding_box[1] for line in paragraph),
+                                                    max(line.bounding_box[2] for line in paragraph),
+                                                    min(line.bounding_box[3] for line in paragraph),
+                                                    max(line.bounding_box[4] for line in paragraph),
+                                                    max(line.bounding_box[5] for line in paragraph),
+                                                    min(line.bounding_box[6] for line in paragraph),
+                                                    max(line.bounding_box[7] for line in paragraph)]
+
+
+                    boxed_paragraph = image.crop((x1, y1, x3, y3))
+                    boxed_paragraph_buffer = io.BytesIO()
+                    boxed_paragraph.save(boxed_paragraph_buffer, format='PNG')
+                    boxed_paragraph_encoded = base64.b64encode(boxed_paragraph_buffer.getvalue())
+
+                    paragraph_text = ' '.join(line.text for line in paragraph)
+                    print(paragraph)
+
+                    metadata["paragraphs"].append({
+                        "text": paragraph_text,
+                        "probability": None,  # You can update this if you want to calculate the probability for the entire paragraph
+                        "boxed_paragraph": boxed_paragraph_encoded.decode('utf-8'),
+                        "lines": [ {**line.as_dict(), "probability": line.appearance.style.confidence} for line in paragraph]
                         })
+
+                    
+
 
 
         print("Saving results...")
@@ -389,6 +427,7 @@ class AzureBoxedImages(dj.Imported):
         full_text = ' '.join([item['text'] for item in metadata['texts']])
 
         with open('metadata.json', 'w') as f:
+            metadata['lines'] = [line.as_dict() for line in metadata['lines']]  # add this line to convert Line objects to dictionary
             json.dump(metadata, f, indent=2)
         print("Finished.")
 
@@ -402,13 +441,13 @@ class AzureBoxedImages(dj.Imported):
         image = Image.open(io.BytesIO(image_blob))
 
         # Call the Azure OCR function
-        metadata = self.azure_image_processing(key['document_id'], key['image_number'])
+        metadata = AzureBoxedImages.azure_image_processing(key['document_id'], key['image_number'])
 
         # Extract the full_text from the metadata
         full_text = ' '.join([text_info['text'] for text_info in metadata[2]['texts']])
         # Save the full_boxed_image
         full_boxed_image = metadata[0]
-        full_boxed_buffer = BytesIO()
+        full_boxed_buffer = io.BytesIO()
         full_boxed_image.save(full_boxed_buffer, format='PNG')
 
         # Insert the key, full_boxed_image, and full_text into the AzureBoxedImages table
@@ -426,18 +465,19 @@ class AzureBoxedImages(dj.Imported):
             AzureBoxedImages.AzureBoxedImageBlobs.insert1(boxed_image_key)
 
         # Insert the boxed paragraph blobs and their respective OCR text and probability
-        # You need to update the azure_image_processing function to return the paragraph information.
-        # In this example, we assume that the metadata has a new key 'paragraphs' that stores the paragraph information.
-        # for idx, paragraph_info in enumerate(metadata['paragraphs']):
-        #     boxed_paragraph_key = dict(
-        #         key,
-        #         paragraph_number=idx + 1,
-        #         ocr_text=paragraph_info['text'],
-        #         ocr_prob=paragraph_info['probability']
-        #     )
+        for idx, paragraph_info in enumerate(metadata[2]['paragraphs']):
+            # Calculate the average probability for the paragraph
+            paragraph_prob = [line['probability'] for line in paragraph_info['lines']]
+            avg_prob = sum(paragraph_prob) / len(paragraph_prob) if paragraph_prob else 0
 
-        #     # You can either store the individual boxed_paragraph using the coordinates from the Azure OCR result
-        #     # or leave it out if you only need the OCR text and probability.
-        #     # To store the individual boxed_paragraph, you need to modify the azure_image_processing function to return the bounding box information.
+            boxed_paragraph_key = dict(
+                key,
+                paragraph_number=idx + 1,
+                boxed_paragraph=paragraph_info['boxed_paragraph'],
+                ocr_text=paragraph_info['text'],
+                ocr_prob=avg_prob  # Add the average probability here
+            )
 
-        #     AzureBoxedImages.AzureBoxedParagraphBlobs.insert1(boxed_paragraph_key)
+            AzureBoxedImages.AzureBoxedParagraphBlobs.insert1(boxed_paragraph_key)
+
+
