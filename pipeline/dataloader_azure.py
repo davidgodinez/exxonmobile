@@ -7,7 +7,8 @@ from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes, VisualFeatureTypes
 import requests
 from PIL import Image, ImageDraw, ImageFont
-from table_classes import ConvertedDocuments, BoxedImages
+from table_classes import ConvertedDocuments, AzureBoxedImages
+import matplotlib.pyplot as plt
 
 
 def azure_image_processing(document_id, image_number):
@@ -72,4 +73,18 @@ def azure_image_processing(document_id, image_number):
     print("Finished.")
 
 
-# azure_image_processing(0,1)
+def azure_full_image_with_boxes_shower(document_id, image_number, scale_factor=2.0):
+    full_boxed_image = (AzureBoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
+    boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
+    
+    # Resize the image
+    new_width = int(boxed_image_pil.width * scale_factor)
+    new_height = int(boxed_image_pil.height * scale_factor)
+    resized_image = boxed_image_pil.resize((new_width, new_height), Image.ANTIALIAS)
+    
+    fig, ax = plt.subplots(figsize=(10, 10))
+    ax.imshow(resized_image)
+    ax.set_title("Full Image with Boxes")
+    ax.axis("off")
+    
+    plt.show()

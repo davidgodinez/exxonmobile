@@ -3,7 +3,7 @@ from tkinter import messagebox
 from datetime import datetime
 from dataloader import dataloader, full_image_shower, box_shower, full_image_with_boxes_shower, boxed_paragraph_shower, export_to_json
 from table_classes import BoxedImages
-from dataloader_azure import azure_image_processing
+from dataloader_azure import azure_image_processing, azure_full_image_with_boxes_shower
 from dataloader_aws import aws_textract_processing
 from tkinter import messagebox
 from datetime import datetime
@@ -102,7 +102,7 @@ def full_azure_image_processing_btn():
     try:
         document_id = int(document_id_entry.get())
         image_number = int(image_number_entry.get())
-        azure_image_processing(document_id, image_number)
+        azure_full_image_with_boxes_shower(document_id, image_number)
     except ValueError:
         messagebox.showerror("Error", "Invalid input for document_id or image_number")
 
