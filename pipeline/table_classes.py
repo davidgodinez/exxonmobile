@@ -8,6 +8,15 @@ import numpy as np
 import cv2
 from easyocr import Reader
 import json
+import os
+import time
+from msrest.authentication import CognitiveServicesCredentials
+from azure.cognitiveservices.vision.computervision import ComputerVisionClient
+from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes, VisualFeatureTypes
+import requests
+from PIL import Image, ImageDraw, ImageFont
+import base64
+
 
 schema = dj.Schema("exxonmobile")
 folder_path = '../files'
@@ -260,16 +269,6 @@ class BoxedImages(dj.Imported):
                                                         ocr_prob=avg_prob))
 
 
-import os
-import io
-import json
-import time
-from msrest.authentication import CognitiveServicesCredentials
-from azure.cognitiveservices.vision.computervision import ComputerVisionClient
-from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes, VisualFeatureTypes
-import requests
-from PIL import Image, ImageDraw, ImageFont
-import base64
 
 @schema
 class AzureBoxedImages(dj.Imported):
@@ -288,6 +287,7 @@ class AzureBoxedImages(dj.Imported):
         boxed_image: longblob
         ocr_text: varchar(1000)
         ocr_prob: float
+        handwritten: tinyint(1) DEFAULT 0
         """
 
     class AzureBoxedImageComments(dj.Part):
@@ -439,6 +439,76 @@ class AzureBoxedImages(dj.Imported):
 
 
     def make(self, key):
+        # from form_recognizer import form_recognizer
+        print(os.getcwd())
+        from azure.ai.formrecognizer import DocumentAnalysisClient
+        from azure.core.credentials import AzureKeyCredential
+        def form_recognizer(document_id, image_number):
+    # Load the credentials from a JSON file and other necessary steps
+    # Load the credentials from a JSON file
+            credentials_path = os.path.abspath('credentials2.json')
+            with open(credentials_path, 'r') as f:
+                credentials = json.load(f)
+
+            # Replace with your own values
+            subscription_key = credentials['API_key']
+            endpoint = credentials['endpoint']
+
+            # sample document
+            image_blob = (ConvertedDocuments.Images & f'document_id={document_id}' & f'image_number={image_number}').fetch1('image')
+            image = Image.open(io.BytesIO(image_blob))
+            print("Original image dimensions: width = {}, height = {}".format(image.width, image.height))
+
+            # Check if image dimensions are within the supported range and resize if necessary
+            max_dimension = 4200
+            if image.width > max_dimension or image.height > max_dimension:
+                aspect_ratio = float(image.width) / float(image.height)
+                if image.width > image.height:
+                    new_width = max_dimension
+                    new_height = int(max_dimension / aspect_ratio)
+                else:
+                    new_width = int(max_dimension * aspect_ratio)
+                    new_height = max_dimension
+
+                image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+            min_dimension = 500
+            if image.width < min_dimension or image.height < min_dimension:
+                aspect_ratio = float(image.width) / float(image.height)
+                if image.width < image.height:
+                    new_width = min_dimension
+                    new_height = int(min_dimension / aspect_ratio)
+                else:
+                    new_width = int(min_dimension * aspect_ratio)
+                    new_height = min_dimension
+
+                image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+            print("Resized image dimensions: width = {}, height = {}".format(image.width, image.height))
+            image_data = io.BytesIO()
+            image.save(image_data, format="PNG")
+            image_data = image_data.getvalue()
+
+            handwritten_content = []
+
+            # create your `DocumentAnalysisClient` instance and `AzureKeyCredential` variable
+            document_analysis_client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(subscription_key))
+
+            poller = document_analysis_client.begin_analyze_document(
+                    "prebuilt-document", image_data)
+            result = poller.result()
+
+            for style in result.styles:
+                if style.is_handwritten:
+                    print("Document contains handwritten content: ")
+                    handwritten_content = [result.content[span.offset:span.offset + span.length] for span in style.spans]
+                    print(",".join(handwritten_content))
+                    return handwritten_content
+                else:
+                    print('There is no handwritten text')
+                    return []
+
+            return handwritten_content
         # Load the image from the key
         image_blob = (ConvertedDocuments.Images & key).fetch1('image')
         image = Image.open(io.BytesIO(image_blob))
@@ -458,15 +528,19 @@ class AzureBoxedImages(dj.Imported):
         # Insert the key, full_boxed_image, and full_text into the AzureBoxedImages table
         self.insert1(dict(key, full_boxed_image=full_boxed_buffer.getvalue(), full_text=full_text))
 
-        # Insert the boxed image blobs and their respective OCR text and probability
+        # Get the handwritten content from the form_recognizer function
+        handwritten_content = form_recognizer(key['document_id'], key['image_number'])
+
+        # Insert the boxed image blobs and their respective OCR text, probability, and a boolean for being handwritten
         for idx, text_info in enumerate(metadata[2]['texts']):
-            boxed_image_key = dict(key, box_number=idx, boxed_image=base64.b64decode(text_info['boxed_image'].encode('utf-8')), ocr_text=text_info['text'], ocr_prob=text_info['probability'])
+            is_handwritten = text_info['text'] in handwritten_content
+            boxed_image_key = dict(key, box_number=idx, boxed_image=base64.b64decode(text_info['boxed_image'].encode('utf-8')),
+                                ocr_text=text_info['text'], ocr_prob=text_info['probability'], handwritten=is_handwritten)
             self.AzureBoxedImageBlobs.insert1(boxed_image_key)
 
-            # Insert the boxed paragraph blobs and their respective OCR text and probability
+        # Insert the boxed paragraph blobs and their respective OCR text and probability
         for idx, paragraph_info in enumerate(metadata[2]['paragraphs']):
-            boxed_paragraph_key = dict(key, paragraph_number=idx, boxed_paragraph=base64.b64decode(paragraph_info['boxed_paragraph'].encode('utf-8')), ocr_text=paragraph_info['text'], ocr_prob=0.0)
+            boxed_paragraph_key = dict(key, paragraph_number=idx, boxed_paragraph=base64.b64decode(paragraph_info['boxed_paragraph'].encode('utf-8')),
+                                    ocr_text=paragraph_info['text'], ocr_prob=0.0)
             self.AzureBoxedParagraphBlobs.insert1(boxed_paragraph_key)
-
-
-
+            

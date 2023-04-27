@@ -156,6 +156,24 @@ tests = ["attrs[tests-no-zope]", "zope-interface"]
 tests-no-zope = ["cloudpickle", "hypothesis", "mypy (>=1.1.1)", "pympler", "pytest (>=4.3.0)", "pytest-mypy-plugins", "pytest-xdist[psutil]"]
 
 [[package]]
+name = "azure-ai-formrecognizer"
+version = "3.2.0"
+description = "Microsoft Azure Form Recognizer Client Library for Python"
+category = "main"
+optional = false
+python-versions = ">=3.7"
+files = [
+    {file = "azure-ai-formrecognizer-3.2.0.zip", hash = "sha256:919ea926b4abdbcafb0c2bb68d50d21ab19976ed5a1433bf3904aa842748a6c5"},
+    {file = "azure_ai_formrecognizer-3.2.0-py3-none-any.whl", hash = "sha256:1964357a486b17a2c932ad8c6407bc23a101b79f4a7c564c43042322688b0400"},
+]
+
+[package.dependencies]
+azure-common = ">=1.1,<2.0"
+azure-core = ">=1.23.0,<2.0.0"
+msrest = ">=0.6.21"
+typing-extensions = ">=4.0.1"
+
+[[package]]
 name = "azure-cognitiveservices-vision-computervision"
 version = "0.9.0"
 description = "Microsoft Azure Cognitive Services Computer Vision Client Library for Python"
@@ -3998,4 +4016,4 @@ testing = ["big-O", "flake8 (<5)", "jaraco.functools", "jaraco.itertools", "more
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.9"
-content-hash = "0ca08b6113df793ad4285f972200550d60fcb8a8af07b31ec738a2a7daaeceb8"
+content-hash = "c8a634a8d1c04fbd8c0c25326000eec97091e372e412249cc1203541753dc5fd"
