@@ -13,6 +13,8 @@ import time
 from msrest.authentication import CognitiveServicesCredentials
 from azure.cognitiveservices.vision.computervision import ComputerVisionClient
 from azure.cognitiveservices.vision.computervision.models import OperationStatusCodes, VisualFeatureTypes
+from azure.ai.formrecognizer import DocumentAnalysisClient
+from azure.core.credentials import AzureKeyCredential
 import requests
 from PIL import Image, ImageDraw, ImageFont
 import base64
@@ -64,8 +66,12 @@ class ConvertedDocuments(dj.Imported):
                 img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
                 img.save(buffer, format='PNG')
 
-                # Store the PNG image as a longblob in the table
-                ConvertedDocuments.Images.insert1(dict(key, image_number=page_number + 1, image=buffer.getvalue()))
+                # Check if the combination of document_id and image_number already exists in the table
+                existing_entry = (ConvertedDocuments.Images & dict(key, image_number=page_number + 1)).fetch()
+                if not existing_entry:
+                    # Store the PNG image as a longblob in the table
+                    ConvertedDocuments.Images.insert1(dict(key, image_number=page_number + 1, image=buffer.getvalue()))
+
 
 
 
@@ -441,8 +447,6 @@ class AzureBoxedImages(dj.Imported):
     def make(self, key):
         # from form_recognizer import form_recognizer
         print(os.getcwd())
-        from azure.ai.formrecognizer import DocumentAnalysisClient
-        from azure.core.credentials import AzureKeyCredential
         def form_recognizer(document_id, image_number):
     # Load the credentials from a JSON file and other necessary steps
     # Load the credentials from a JSON file
@@ -543,4 +547,199 @@ class AzureBoxedImages(dj.Imported):
             boxed_paragraph_key = dict(key, paragraph_number=idx, boxed_paragraph=base64.b64decode(paragraph_info['boxed_paragraph'].encode('utf-8')),
                                     ocr_text=paragraph_info['text'], ocr_prob=0.0)
             self.AzureBoxedParagraphBlobs.insert1(boxed_paragraph_key)
-            
+
+
+# @schema
+# class FormRecognizer(dj.Imported):
+#     definition = """
+#     -> ConvertedDocuments.Images   # using ConvertedDocuments.Images primary key as foreign key
+#     ---
+#     form_recognizer_image: longblob  # image blob from form recognizer
+#     form_recognizer_text: varchar(10000)  # text generated from form recognizer
+#     form_recognizer_probability: float  # probability generated from form recognizer
+#     """
+
+
+#     def form_recognizer(self, image_blob):
+#         # Load the credentials from a JSON file and other necessary steps
+#         # Load the credentials from a JSON file
+#         credentials_path = os.path.abspath('credentials2.json')
+#         with open(credentials_path, 'r') as f:
+#             credentials = json.load(f)
+
+#         # Replace with your own values
+#         subscription_key = credentials['API_key']
+#         endpoint = credentials['endpoint']
+
+#         # sample document
+#         image = Image.open(io.BytesIO(image_blob))
+#         print("Original image dimensions: width = {}, height = {}".format(image.width, image.height))
+
+#         # Code for resizing the image if necessary
+
+#         image_data = io.BytesIO()
+#         image.save(image_data, format="PNG")
+#         image_data = image_data.getvalue()
+
+#         # create your `DocumentAnalysisClient` instance and `AzureKeyCredential` variable
+#         document_analysis_client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(subscription_key))
+
+#         poller = document_analysis_client.begin_analyze_document(
+#                 "prebuilt-document", image_data)
+#         result = poller.result()
+
+#         draw = ImageDraw.Draw(image)
+
+#         for style in result.styles:
+#             if style.is_handwritten:
+#                 print("Document contains handwritten content: ")
+#                 for span in style.spans:
+#                     start_idx = span.offset
+#                     end_idx = start_idx + span.length
+
+#                     for page in result.pages:
+#                         for word in page.words:
+#                             word_idx = result.content.index(word.content)
+#                             if word_idx >= start_idx and word_idx < end_idx:
+#                                 print(word.content)
+
+#                                 bounding_box = [point for point in word.polygon]
+#                                 draw.polygon(bounding_box, outline="red")
+
+
+
+#         # Save the modified image to a bytes buffer
+#         boxed_image_data = io.BytesIO()
+#         image.save(boxed_image_data, format="PNG")
+#         boxed_image_data = boxed_image_data.getvalue()
+
+
+#         # Extract the text from the result object
+#         form_recognizer_text = ""
+#         for content_item in result.content:
+#             if isinstance(content_item, str):
+#                 continue
+#             if content_item.kind == "line":
+#                 form_recognizer_text += "\n"
+#             elif content_item.kind == "word":
+#                 form_recognizer_text += content_item.content + " "
+        
+#         return boxed_image_data, form_recognizer_text
+
+#     def make(self, key):
+#         # Fetch the image blob from the ConvertedDocuments.Images table
+#         image_blob = (ConvertedDocuments.Images & key).fetch1('image')
+
+#         # Call your form_recognizer function on the image_blob and get the resulting image and text
+#         form_recognizer_image, form_recognizer_text = self.form_recognizer(image_blob)
+
+#         # Insert the key and the resulting image and text into the FormRecognizer table
+#         self.insert1(dict(key, form_recognizer_image=form_recognizer_image, form_recognizer_text=form_recognizer_text))
+
+@schema
+class FormRecognizer(dj.Imported):
+    definition = """
+    -> ConvertedDocuments.Images   # using ConvertedDocuments.Images primary key as foreign key
+    ---
+    form_recognizer_image: longblob  # image blob from form recognizer
+    form_recognizer_text_confidence: varchar(10000)  # text and confidence generated from form recognizer
+    """
+
+    # class AzureBoxedImageBlobs(dj.Part):
+    #     definition = """
+    #     -> FormRecognizer
+    #     box_number: int
+    #     ---
+    #     boxed_image: longblob
+    #     form_recognizer_text: varchar(1000)
+    #     ocr_prob: float
+    #     """
+
+    def form_recognizer(self, image_blob):
+        # Load the credentials from a JSON file and other necessary steps
+        # Load the credentials from a JSON file
+        credentials_path = os.path.abspath('credentials2.json')
+        with open(credentials_path, 'r') as f:
+            credentials = json.load(f)
+
+        # Replace with your own values
+        subscription_key = credentials['API_key']
+        endpoint = credentials['endpoint']
+
+        # sample document
+        image = Image.open(io.BytesIO(image_blob))
+        print("Original image dimensions: width = {}, height = {}".format(image.width, image.height))
+
+        # Code for resizing the image if necessary
+
+        image_data = io.BytesIO()
+        image.save(image_data, format="PNG")
+        image_data = image_data.getvalue()
+
+        # create your `DocumentAnalysisClient` instance and `AzureKeyCredential` variable
+        document_analysis_client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(subscription_key))
+
+        poller = document_analysis_client.begin_analyze_document(
+                "prebuilt-document", image_data)
+        result = poller.result()
+
+        draw = ImageDraw.Draw(image)
+
+        for style in result.styles:
+            if style.is_handwritten:
+                print("Document contains handwritten content: ")
+                for span in style.spans:
+                    start_idx = span.offset
+                    end_idx = start_idx + span.length
+
+                    for page in result.pages:
+                        for word in page.words:
+                            word_idx = result.content.index(word.content)
+                            if word_idx >= start_idx and word_idx < end_idx:
+                                print(word.content)
+
+                                bounding_box = [point for point in word.polygon]
+                                draw.polygon(bounding_box, outline="red")
+
+
+
+        # Save the modified image to a bytes buffer
+        boxed_image_data = io.BytesIO()
+        image.save(boxed_image_data, format="PNG")
+        boxed_image_data = boxed_image_data.getvalue()
+
+
+        # Extract the text from the result object
+        form_recognizer_text = ""
+        for content_item in result.content:
+            if isinstance(content_item, str):
+                continue
+            if content_item.kind == "line":
+                form_recognizer_text += "\n"
+            elif content_item.kind == "word":
+                form_recognizer_text += content_item.content + " "
+#        Extract the text and confidence from the result object
+        form_recognizer_text_confidence = []
+        for page in result.pages:
+            for word in page.words:
+                form_recognizer_text_confidence.append({"text": word.content, "confidence": word.confidence})
+
+        # Convert the extracted text and confidence values to a JSON string
+        form_recognizer_text_confidence_json = json.dumps(form_recognizer_text_confidence)
+        print(form_recognizer_text_confidence_json)
+
+        # return boxed_image_data, form_recognizer_text_confidence_json
+        return boxed_image_data
+    
+
+    def make(self, key):
+        # Fetch the image blob from the ConvertedDocuments.Images table
+        image_blob = (ConvertedDocuments.Images & key).fetch1('image')
+
+        # Call your form_recognizer function on the image_blob and get the resulting image and text with confidence values
+        # form_recognizer_image, form_recognizer_text_confidence_json = self.form_recognizer(image_blob)
+        form_recognizer_image = self.form_recognizer(image_blob)
+
+        # Insert the key and the resulting image and text with confidence values into the FormRecognizer table
+        # self.insert1(dict(key, form_recognizer_image=form_recognizer_image, form_recognizer_text_confidence=form_recognizer_text_confidence_json))
+        self.insert1(dict(key, form_recognizer_image=form_recognizer_image, form_recognizer_text_confidence=0))
