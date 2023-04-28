@@ -34,7 +34,7 @@ def aws_textract_processing(document_id, image_number):
     }
 
     for item in response["Blocks"]:
-        if item["BlockType"] == "LINE":
+        if item["BlockType"] == "WORD":
             print(f"{item['Text']} (Confidence: {item['Confidence']:.2f})")
             box = item['Geometry']['BoundingBox']
             left = image.width * box['Left']
@@ -46,6 +46,7 @@ def aws_textract_processing(document_id, image_number):
             metadata["texts"].append({
                 "text": item['Text'],
                 "confidence": item['Confidence']
+                "textType": item['TextType']
             })
 
     print("Saving and displaying results...")

@@ -129,3 +129,5 @@ dmypy.json
 .pyre/
 dj_local_conf.json
 credentials*.json
+files/sharpened_7b12da4f-7664-433c-9a34-4306c35f1aab-01.png
+files/7b12da4f-7664-433c-9a34-4306c35f1aab_removed.pdf
