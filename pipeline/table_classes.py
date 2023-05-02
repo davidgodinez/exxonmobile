@@ -20,6 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 import base64
 
 
+
 schema = dj.Schema("exxonmobile")
 folder_path = '../files'
 
@@ -578,6 +579,23 @@ class FormRecognizer(dj.Imported):
 
 
 
+    def resize_image(self, image, max_allowed_size):
+        while True:
+            # Save the image to a bytes buffer
+            image_data = io.BytesIO()
+            image.save(image_data, format="PNG")
+
+            # Check if the image size is within the allowed limit
+            if image_data.tell() <= max_allowed_size:
+                break
+
+            # Reduce the image size by 10%
+            new_width = int(0.9 * image.width)
+            new_height = int(0.9 * image.height)
+            image = image.resize((new_width, new_height), Image.ANTIALIAS)
+
+        return image, image_data.getvalue()
+    
 
     def form_recognizer(self, image_blob):
         # Load the credentials from a JSON file and other necessary steps
@@ -590,15 +608,16 @@ class FormRecognizer(dj.Imported):
         subscription_key = credentials['API_key']
         endpoint = credentials['endpoint']
 
-        # sample document
+        # document
         image = Image.open(io.BytesIO(image_blob))
         print("Original image dimensions: width = {}, height = {}".format(image.width, image.height))
 
-        # Code for resizing the image if necessary
+        # Define the maximum allowed size (in bytes)
+        max_allowed_size = 4 * 1024 * 1024  # 4 MB
 
-        image_data = io.BytesIO()
-        image.save(image_data, format="PNG")
-        image_data = image_data.getvalue()
+        # Resize the image if it exceeds the maximum allowed size
+        image, image_data = self.resize_image(image, max_allowed_size)
+        print("Resized image dimensions: width = {}, height = {}".format(image.width, image.height))
 
         # create your `DocumentAnalysisClient` instance and `AzureKeyCredential` variable
         document_analysis_client = DocumentAnalysisClient(endpoint=endpoint, credential=AzureKeyCredential(subscription_key))
@@ -666,8 +685,14 @@ class FormRecognizer(dj.Imported):
             bounding_box = word['polygon']
             draw.polygon(bounding_box, outline="red")
 
-            # Crop the boxed image using the bounding box
-            cropped_box = original_image.crop((bounding_box[0].x, bounding_box[0].y, bounding_box[2].x, bounding_box[2].y))
+            # Compute the minimum and maximum coordinates for both x and y
+            min_x = min(point.x for point in bounding_box)
+            min_y = min(point.y for point in bounding_box)
+            max_x = max(point.x for point in bounding_box)
+            max_y = max(point.y for point in bounding_box)
+
+            # Crop the boxed image using the proper coordinates
+            cropped_box = original_image.crop((min_x, min_y, max_x, max_y))
 
             # Save the cropped box image to a bytes buffer
             cropped_box_data = io.BytesIO()

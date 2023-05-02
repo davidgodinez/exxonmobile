@@ -45,7 +45,7 @@ def aws_textract_processing(document_id, image_number):
             draw.text((left, top - 20), f"{item['Text']} ({item['Confidence']:.2f}%)", font=font, fill='Blue')
             metadata["texts"].append({
                 "text": item['Text'],
-                "confidence": item['Confidence']
+                "confidence": item['Confidence'],
                 "textType": item['TextType']
             })
 
