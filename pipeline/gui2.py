@@ -246,9 +246,6 @@ def export_to_json_btn():
 
 
 
-
-
-
 # Create the execute button
 def execute_display_option():
     try:
@@ -257,14 +254,17 @@ def execute_display_option():
 
         selected_option = display_option.get()
         if selected_option == "No Model":
-            full_image_shower_btn()
+            total_pages = full_image_shower(document_id, image_number)
+            total_pages_label.config(text=f"Page {image_number} of {total_pages}")
         elif selected_option == "Azure Form Recognizer":
-            form_recognizer_full_image_shower(document_id, image_number)
+            total_pages = form_recognizer_full_image_shower(document_id, image_number)
+            total_pages_label.config(text=f"Page {image_number} of {total_pages}")
         elif selected_option == "AWS Textract":
             full_aws_textract_processing_btn()
 
     except ValueError:
         messagebox.showerror("Error", "Invalid input for document_id or image_number")
+
 
 
 
@@ -346,6 +346,8 @@ image_number_label.pack()
 image_number_entry.pack()
 
 execute_button.pack(pady=10)
+total_pages_label = tk.Label(root, text="")
+total_pages_label.pack(pady=5)
 export_to_json_button.pack(pady=10)
 
 box_number_label.pack()

@@ -645,6 +645,11 @@ class FormRecognizer(dj.Imported):
                                     "confidence": word.confidence,
                                     "polygon": [point for point in word.polygon]
                                 })
+        # PAY SPECIAL ATTENTION TO THE TWO LIENS BELOW. This is our 'big filter'
+        # Apply the min_word_length filtering
+        min_word_length = 2  # Adjust this value based on your observations
+        handwritten_words = [word for word in handwritten_words if len(word['text']) >= min_word_length]
+
 
         # Draw the bounding boxes around the handwritten words
         draw = ImageDraw.Draw(image)

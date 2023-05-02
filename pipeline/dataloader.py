@@ -13,6 +13,7 @@ import json
 def dataloader():
     parent_directory = os.getcwd()
     folder_path = f'{parent_directory}/files'
+    # folder_path = f'{parent_directory}'    
     loader = PDFFileLoader(folder_path=folder_path)
     loader.load_files()
     ConvertedDocuments.populate()
@@ -40,6 +41,8 @@ def full_image_shower(document_id, image_number, scale_factor=2.0):
     ax.axis("off")
     
     plt.show()
+
+    return len(ConvertedDocuments.Images & f'document_id={document_id}')
 
 
 def box_shower(document_id, image_number, box_number):
@@ -245,12 +248,6 @@ def Form_recognizer_export_to_json(document_id, image_number):
 
 
 
-
-
-
-
-
-
 def form_recognizer_full_image_shower(document_id, image_number, scale_factor=2.0):
     image = (FormRecognizer & f'document_id={document_id}' & f'image_number={image_number}').fetch1('form_recognizer_image')
     boxed_image_pil = Image.open(io.BytesIO(image))
@@ -266,6 +263,8 @@ def form_recognizer_full_image_shower(document_id, image_number, scale_factor=2.
     ax.axis("off")
     
     plt.show()
+
+    return len(FormRecognizer & f'document_id={document_id}')
 
 
 
