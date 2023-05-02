@@ -82,6 +82,26 @@ def Azure_box_shower(document_id, image_number, box_number):
     plt.show()
 
 
+def Form_recognizer_box_shower(document_id, image_number, box_number):
+    full_boxed_image = (FormRecognizer & {'document_id': document_id, 'image_number': image_number}).fetch1('form_recognizer_image')
+    boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
+    
+    boxed_image_blob = (FormRecognizer.FormRecognizerBoxedImageBlobs & {'document_id': document_id, 'image_number': image_number, 'box_number': box_number}).fetch1('boxed_image')
+    ocr_prob = (FormRecognizer.FormRecognizerBoxedImageBlobs & {'document_id': document_id, 'image_number': image_number, 'box_number': box_number}).fetch1('ocr_prob')
+    boxed_image = Image.open(io.BytesIO(boxed_image_blob))
+    
+    fig, axes = plt.subplots(1, 2, figsize=(20, 10))
+    axes[0].imshow(boxed_image_pil)
+    axes[0].set_title("Full Image with Boxes")
+    axes[0].axis("off")
+    
+    axes[1].imshow(boxed_image)
+    axes[1].set_title(f"Box {box_number} - OCR Probability: {ocr_prob:.2f}")
+    axes[1].axis("off")
+    
+    plt.show()
+
+
 
 def full_image_with_boxes_shower(document_id, image_number, scale_factor=2.0):
     full_boxed_image = (BoxedImages & {'document_id': document_id, 'image_number': image_number}).fetch1('full_boxed_image')
@@ -199,6 +219,34 @@ def Azure_export_to_json(document_id, image_number):
     filename = f"document_Azure_{document_id}_image_{image_number}.json"
     with open(filename, 'w') as f:
         json.dump(data, f, indent=4)
+
+
+
+
+def Form_recognizer_export_to_json(document_id, image_number):
+
+    # Fetch the required data from FormRecognizer and FormRecognizerBoxedImageBlobs
+    data = (FormRecognizer & {'document_id': document_id, 'image_number': image_number}).fetch1()
+    boxed_image_blobs = (FormRecognizer.FormRecognizerBoxedImageBlobs & {'document_id': document_id, 'image_number': image_number}).fetch('form_recognizer_text', 'ocr_prob')
+
+    # Prepare the output data
+    exported_data = {
+        'document_id': document_id,
+        'image_number': image_number,
+        'average_ocr_prob': data['average_form_recognizer_text_confidence'],
+        'full_text': [{'text': str(boxed_image_blobs[0][num]), 'probability': float(boxed_image_blobs[1][num])} for num in range(len(boxed_image_blobs[0]))]
+    }
+
+    # Export the data to a JSON file
+    filename = f"document_Form_recognizer_{document_id}_image_{image_number}.json"
+    with open(filename, 'w') as f:
+        json.dump(exported_data, f, indent=4)
+
+
+
+
+
+
 
 
 
