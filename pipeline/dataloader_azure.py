@@ -88,3 +88,5 @@ def azure_full_image_with_boxes_shower(document_id, image_number, scale_factor=2
     ax.axis("off")
     
     plt.show()
+
+    # return len(AzureBoxedImages & f'document_id={document_id}')
