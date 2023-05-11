@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
 from dataloader import dataloader, full_image_shower, box_shower, full_image_with_boxes_shower, boxed_paragraph_shower, export_to_json, Azure_box_shower, Azure_boxed_paragraph_shower, Azure_export_to_json, form_recognizer_full_image_shower, Form_recognizer_export_to_json, Form_recognizer_box_shower
-from table_classes import BoxedImages, AzureBoxedImages, FormRecognizer
+from table_classes import FormRecognizer
 from dataloader_azure import azure_image_processing, azure_full_image_with_boxes_shower
 from dataloader_aws import aws_textract_processing
 from tkinter import messagebox
@@ -104,7 +104,7 @@ def create_scrollable_frame(parent):
 
 def dataloader_btn():
     dataloader()
-    messagebox.showinfo("Info", "Data loaded and tables populated")
+    messagebox.showinfo("Info", "Data analyzed!")
 
 def full_image_shower_btn():
     try:
@@ -274,7 +274,7 @@ root.title("Form Recognizer Image Viewer")
 
 # Create widgets
 
-dataloader_button = tk.Button(root, text="Load Data", command=dataloader_btn)
+dataloader_button = tk.Button(root, text="Analyze Data", command=dataloader_btn)
 
 document_id_label = tk.Label(root, text="Document ID:")
 document_id_entry = tk.Entry(root)
@@ -336,8 +336,8 @@ result_text = tk.StringVar()
 # Place widgets on the window
 dataloader_button.pack(pady=10)
 
-display_option_label.pack()
-display_option_menu.pack()
+# display_option_label.pack()
+# display_option_menu.pack()
 
 document_id_label.pack()
 document_id_entry.pack()

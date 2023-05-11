@@ -17,9 +17,12 @@ class PDFFileLoader:
             # Check if the file is a PDF
             if file_name.endswith('.pdf') and (len((Documents & {'file_name':file_name}).fetch()) == 0):
                 # Extract the necessary file information
-                # file_path = os.path.join(self.folder_path, file_name)
                 date_added = datetime.datetime.now()
 
                 # Insert the file information into the database table
-                data = {'document_id': len(Documents.fetch()), 'datetime': date_added, 'file_name': file_name}
+                data = {'document_id': len(Documents.fetch()), 
+                        'datetime': date_added, 
+                        'file_name': file_name,
+                        'folder_path': self.folder_path}  # Add the folder path here
                 Documents.insert1(data)
+
