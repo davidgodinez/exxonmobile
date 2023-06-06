@@ -13,7 +13,7 @@ import time
 import requests
 from PIL import Image, ImageDraw, ImageFont
 import base64
-from form_recognizer5 import analyze_document, create_paragraph_dataframe, create_style_dataframe, merge_dataframes
+from form_recognizer import analyze_document, create_paragraph_dataframe, create_style_dataframe, merge_dataframes
 import pandas as pd
 
 
@@ -93,6 +93,8 @@ class FormRecognizer(dj.Computed):
         result = analyze_document(file_path)
         df_paragraph_spans = create_paragraph_dataframe(result)
         df_style_spans = create_style_dataframe(result)
+        # filtering for words with a confidence equal to or greater than 90%
+        df_style_spans = df_style_spans[(df_style_spans['confidence'] >= 0.9) & (df_style_spans['length'] > 1)]
         df_merged = merge_dataframes(df_paragraph_spans, df_style_spans)
 
         # Convert the AnalyzeResult object to a JSON string and write it to a file
@@ -158,6 +160,13 @@ class FormRecognizer(dj.Computed):
             # Check if the confidence value is NaN
             if pd.isnull(row['confidence']):
                 row['confidence'] = -1  # replace NaN with -1
+
+            # Check if content value is null  
+            if pd.isnull(row['content']):
+                row['content'] = "NULL"
+            
+            # if pd.isnull(row['page_number']):
+            #     row['page_number'] = 2
 
             # Each row becomes a new entry in the Metadata table
             self.Metadata.insert1(dict(key,

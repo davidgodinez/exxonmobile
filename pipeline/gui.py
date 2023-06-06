@@ -1,12 +1,11 @@
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime
-from dataloader import dataloader, full_image_shower, box_shower, full_image_with_boxes_shower, boxed_paragraph_shower, export_to_json, Azure_box_shower, Azure_boxed_paragraph_shower, Azure_export_to_json
-from table_classes import BoxedImages, AzureBoxedImages
-from dataloader_azure import azure_image_processing, azure_full_image_with_boxes_shower
-from dataloader_aws import aws_textract_processing
+from dataloader import dataloader, full_image_shower, Form_recognizer_box_shower
+from table_classes import FormRecognizer
 from tkinter import messagebox
 from datetime import datetime
+
 
 
 def search_word():
@@ -17,47 +16,40 @@ def search_word():
 
     search_terms = search_term.lower().split()
 
-    filter_value = filter_option.get()
-    
-    if filter_value == "Handwritten":
-        filter_condition = "handwritten=1"
-    elif filter_value == "Not Handwritten":
-        filter_condition = "handwritten=0"
-    else:
-        filter_condition = None
-
     try:
-        if filter_condition:
-            boxed_image_results = (AzureBoxedImages.AzureBoxedImageBlobs & f'{filter_condition}').fetch("ocr_text")
-            # boxed_paragraph_results = AzureBoxedImages.AzureBoxedParagraphBlobs.fetch("ocr_text", filter_condition)
-        else:
-            boxed_image_results = AzureBoxedImages.AzureBoxedImageBlobs.fetch("ocr_text")
-            # boxed_paragraph_results = AzureBoxedImages.AzureBoxedParagraphBlobs.fetch("ocr_text")
-        
         matches = set()
+        boxed_image_results = (FormRecognizer.BoxedImageBlobs).fetch("form_recognizer_text")
 
-        for idx, ocr_text in enumerate(boxed_image_results):
-            ocr_text_lower = ocr_text.lower()
-            if all(term in ocr_text_lower for term in search_terms):
-                document_ids, image_numbers, box_numbers = AzureBoxedImages.AzureBoxedImageBlobs.fetch("document_id", "image_number", "box_number")
-                document_id = document_ids[idx]
-                image_number = image_numbers[idx]
-                box_number = box_numbers[idx]
-                matches.add((document_id, image_number, box_number, "Box"))
+        # Fetch comment data from the FormRecognizer.BoxedImageComments table
+        comment_data = FormRecognizer.BoxedImageComments.fetch("document_id", "page_number", "box_number", "comment")
 
-        # for idx, ocr_text in enumerate(boxed_paragraph_results):
-        #     ocr_text_lower = ocr_text.lower()
-        #     if all(term in ocr_text_lower for term in search_terms):
-        #         document_ids, image_numbers, paragraph_numbers = BoxedImages.BoxedParagraphBlobs.fetch("document_id", "image_number", "paragraph_number")
-        #         document_id = document_ids[idx]
-        #         image_number = image_numbers[idx]
-        #         paragraph_number = paragraph_numbers[idx]
-        #         matches.add((document_id, image_number, paragraph_number, "Paragraph"))
+        for idx, form_recognizer_text in enumerate(boxed_image_results):
+            form_recognizer_text_lower = form_recognizer_text.lower()
+
+            document_ids, page_numbers, box_numbers = FormRecognizer.BoxedImageBlobs.fetch("document_id", "page_number", "box_number")
+            document_id = document_ids[idx]
+            page_number = page_numbers[idx]
+            box_number = box_numbers[idx]
+
+            # Check if a comment exists for this document_id, image_number, and box_number
+            comment = None
+            fetched_comment_data = FormRecognizer.BoxedImageComments & f'document_id={document_id} and page_number={page_number} and box_number={box_number}'
+            if fetched_comment_data:
+                comment_document_id, comment_page_number, comment_box_number, comment_text, _ = fetched_comment_data.fetch1("document_id", "page_number", "box_number", "comment", "comment_timestamp")
+                comment = comment_text
+
+            # Use comment as the search text if it exists, otherwise use the OCR text
+            search_text = comment.lower() if comment else form_recognizer_text_lower
+
+            if all(term in search_text for term in search_terms):
+                matches.add((document_id, page_number, box_number, "Box"))
+
+        # The rest of the code for searching in the FormRecognizer.BoxedImageBlobs table
 
         if matches:
             result_string = "Matches found in:\n"
-            for document_id, image_number, item_number, item_type in matches:
-                result_string += f"Document ID: {document_id}, Image: {image_number}, {item_type}: {item_number}\n"
+            for document_id, page_number, item_number, item_type in matches:
+                result_string += f"Document ID: {document_id}, Page: {page_number}, {item_type}: {item_number}\n"
         else:
             result_string = "No matches found."
 
@@ -93,7 +85,8 @@ def create_scrollable_frame(parent):
 
 def dataloader_btn():
     dataloader()
-    messagebox.showinfo("Info", "Data loaded and tables populated")
+    messagebox.showinfo("Info", "Data analyzed and JSON file created!")
+
 
 def full_image_shower_btn():
     try:
@@ -103,76 +96,17 @@ def full_image_shower_btn():
     except ValueError:
         messagebox.showerror("Error", "Invalid input for document_id or image_number")
 
-def full_image_with_boxes_shower_btn():
-    try:
-        document_id = int(document_id_entry.get())
-        image_number = int(image_number_entry.get())
-        full_image_with_boxes_shower(document_id, image_number)
-    except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id or image_number")
-
-
-def full_azure_image_processing_btn():
-    try:
-        document_id = int(document_id_entry.get())
-        image_number = int(image_number_entry.get())
-        azure_full_image_with_boxes_shower(document_id, image_number)
-    except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id or image_number")
-
-
-def full_aws_textract_processing_btn():
-    try:
-        document_id = int(document_id_entry.get())
-        image_number = int(image_number_entry.get())
-        aws_textract_processing(document_id, image_number)
-    except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id or image_number")
-
 
 def box_shower_btn():
     try:
         document_id = int(document_id_entry.get())
         image_number = int(image_number_entry.get())
         box_number = int(box_number_entry.get())
+        Form_recognizer_box_shower(document_id, image_number, box_number)
 
-        selected_option = display_option.get()
-        if selected_option == "Show Full Image (No Model)":
-            pass
-        elif selected_option == "Show Full Image with Boxes (CRAFT-Pytorch)":
-            # Call the corresponding function for CRAFT-Pytorch
-            box_shower(document_id, image_number, box_number)
-        elif selected_option == "Show Full Image with Boxes (Azure Computer Vision)":
-            # Call the corresponding function for Azure Computer Vision
-            Azure_box_shower(document_id, image_number, box_number)
-        elif selected_option == "Show Full Image with Boxes (AWS Textract)":
-            # Call the corresponding function for AWS Textract
-            pass
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
-    except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id, image_number, or box_number")
-
-def boxed_paragraph_shower_btn():
-    try:
-        document_id = int(document_id_entry.get())
-        image_number = int(image_number_entry.get())
-        paragraph_number = int(paragraph_number_entry.get())
-
-        selected_option = display_option.get()
-        if selected_option == "Show Full Image (No Model)":
-            pass
-        elif selected_option == "Show Full Image with Boxes (CRAFT-Pytorch)":
-            # Call the corresponding function for CRAFT-Pytorch
-            boxed_paragraph_shower(document_id, image_number, paragraph_number)
-        elif selected_option == "Show Full Image with Boxes (Azure Computer Vision)":
-            # Call the corresponding function for Azure Computer Vision
-            Azure_boxed_paragraph_shower(document_id, image_number, paragraph_number)
-        elif selected_option == "Show Full Image with Boxes (AWS Textract)":
-            # Call the corresponding function for AWS Textract
-            pass
-
-    except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id, image_number, or paragraph_number")
 
 
 def submit_comment_btn():
@@ -181,31 +115,20 @@ def submit_comment_btn():
         if comment:
             document_id = int(document_id_entry.get())
             image_number = int(image_number_entry.get())
-            item_type = item_type_var.get()
             item_number = int(item_number_entry.get())
 
             key = {
                 'document_id': document_id,
-                'image_number': image_number,
-                item_type + '_number': item_number,
+                'page_number': image_number,
+                'box_number' : item_number,
                 'comment_timestamp': datetime.now(),  # insert current timestamp
                 'comment': comment,
             }
 
-            selected_option = display_option.get()
 
-            # Insert the comment into the appropriate table
-            if item_type == 'box':
-                if selected_option in ["Show Full Image (No Model)", "Show Full Image with Boxes (CRAFT-Pytorch)"]:
-                    BoxedImages.BoxedImageComments.insert1(key)
-                elif selected_option in ["Show Full Image with Boxes (Azure Computer Vision)"]:
-                    AzureBoxedImages.AzureBoxedImageComments.insert1(key)
-            elif item_type == 'paragraph':
-                if selected_option in ["Show Full Image (No Model)", "Show Full Image with Boxes (CRAFT-Pytorch)"]:
-                    BoxedImages.BoxedParagraphComments.insert1(key)
-                elif selected_option in ["Show Full Image with Boxes (Azure Computer Vision)"]:
-                    AzureBoxedImages.AzureBoxedParagraphComments.insert1(key)
 
+            # Insert into FormRecognizer.FormRecognizerBoxedImageComments table
+            FormRecognizer.BoxedImageComments.insert1(key)
             messagebox.showinfo("Info", f"Comment submitted: {comment}")
 
         else:
@@ -217,94 +140,69 @@ def submit_comment_btn():
 
 
 
-def export_to_json_btn():
+
+def export_pdf_btn():
     try:
         document_id = int(document_id_entry.get())
-        image_number = int(image_number_entry.get())
-
-        selected_option = display_option.get()
-        if selected_option == "Show Full Image (No Model)":
-            pass
-        elif selected_option == "Show Full Image with Boxes (CRAFT-Pytorch)":
-            # Call the corresponding function for CRAFT-Pytorch
-            export_to_json(document_id, image_number)
-        elif selected_option == "Show Full Image with Boxes (Azure Computer Vision)":
-            # Call the corresponding function for Azure Computer Vision
-            Azure_export_to_json(document_id, image_number)
-        elif selected_option == "Show Full Image with Boxes (AWS Textract)":
-            # Call the corresponding function for AWS Textract
-            pass
         
-        messagebox.showinfo("Info", "Export to JSON successful")
+        # Fetch the boxed_pdf_blob for this document_id
+        query = (FormRecognizer & f'document_id={document_id}')
+        boxed_pdf_blob = query.fetch1('boxed_pdf_blob')
+
+        # Export the blob as a PDF file
+        with open(f'document{document_id}.pdf', 'wb') as f:
+            f.write(boxed_pdf_blob)
+
+        messagebox.showinfo("Info", "Export pdf successful")
     except ValueError:
-        messagebox.showerror("Error", "Invalid input for document_id or image_number")
+        messagebox.showerror("Error", "Invalid input for document_id")
+    except Exception as e:
+        messagebox.showerror("Error", f"An error occurred: {e}")
 
 
 # Create the execute button
 def execute_display_option():
-    selected_option = display_option.get()
-    if selected_option == "Show Full Image (No Model)":
-        full_image_shower_btn()
-    elif selected_option == "Show Full Image with Boxes (CRAFT-Pytorch)":
-        full_image_with_boxes_shower_btn()
-    elif selected_option == "Show Full Image with Boxes (Azure Computer Vision)":
-        full_azure_image_processing_btn()
-    elif selected_option == "Show Full Image with Boxes (AWS Textract)":
-        full_aws_textract_processing_btn()
+    try:
+        document_id = int(document_id_entry.get())
+        image_number = int(image_number_entry.get())
+
+        total_pages = full_image_shower(document_id, image_number)
+        total_pages_label.config(text=f"Page {image_number} of {total_pages}")
+
+    except ValueError:
+        messagebox.showerror("Error", "Invalid input for document_id or image_number")
+
+
 
 
 
 root = tk.Tk()
-root.title("PDF Image Viewer")
+root.title("Form Recognizer Image Viewer")
 
 # Create widgets
 
-dataloader_button = tk.Button(root, text="Load Data", command=dataloader_btn)
+dataloader_button = tk.Button(root, text="Analyze Data", command=dataloader_btn)
 
 document_id_label = tk.Label(root, text="Document ID:")
 document_id_entry = tk.Entry(root)
 
-image_number_label = tk.Label(root, text="Image Number:")
+image_number_label = tk.Label(root, text="Page Number:")
 image_number_entry = tk.Entry(root)
 
-# Create a StringVar for the dropdown box
-display_option = tk.StringVar(root)
-display_option.set("Show Full Image (No Model)")  # Set default value
-
-# Create the dropdown box (OptionMenu)
-display_option_label = tk.Label(root, text="Select Model:")
-display_option_menu = tk.OptionMenu(
-    root,
-    display_option,
-    "Show Full Image (No Model)",
-    "Show Full Image with Boxes (CRAFT-Pytorch)",
-    "Show Full Image with Boxes (Azure Computer Vision)",
-    "Show Full Image with Boxes (AWS Textract)",
-)
 
 
 execute_button = tk.Button(root, text="Show", command=execute_display_option)
 
 
 
-export_to_json_button = tk.Button(root, text="Export to JSON", command=export_to_json_btn)
-
-
 box_number_label = tk.Label(root, text="Box Number:")
 box_number_entry = tk.Entry(root)
-box_shower_button = tk.Button(root, text="Show Boxed Image", command=box_shower_btn)
+box_shower_button = tk.Button(root, text="Show Boxed Region", command=box_shower_btn)
 
-paragraph_number_label = tk.Label(root, text="Paragraph Number:")
-paragraph_number_entry = tk.Entry(root)
-boxed_paragraph_shower_button = tk.Button(root, text="Show Boxed Paragraph", command=boxed_paragraph_shower_btn)
 
 comment_label = tk.Label(root, text="Label:")
-comment_entry = tk.Entry(root, width=50)
+comment_entry = tk.Entry(root, width=30)
 
-item_type_var = tk.StringVar(root)
-item_type_var.set('box')  # Set default value
-item_type_label = tk.Label(root, text="Label Type:")
-item_type_optionmenu = tk.OptionMenu(root, item_type_var, 'box', 'paragraph')
 
 item_number_label = tk.Label(root, text="Item Number:")
 item_number_entry = tk.Entry(root)
@@ -316,14 +214,11 @@ search_label = tk.Label(root, text="Search for word(s):")
 search_entry = tk.Entry(root)
 search_button = tk.Button(root, text="Search", command=search_word)
 
-
-
 result_text = tk.StringVar()
-# Place widgets on the window
-dataloader_button.pack(pady=10)
 
-display_option_label.pack()
-display_option_menu.pack()
+
+# # Place widgets on the window
+dataloader_button.pack(pady=10)
 
 document_id_label.pack()
 document_id_entry.pack()
@@ -332,50 +227,41 @@ image_number_label.pack()
 image_number_entry.pack()
 
 execute_button.pack(pady=10)
-export_to_json_button.pack(pady=10)
+total_pages_label = tk.Label(root, text="")
+total_pages_label.pack(pady=5)
+
 
 box_number_label.pack()
 box_number_entry.pack()
 
 box_shower_button.pack(pady=10)
 
-paragraph_number_label.pack()
-paragraph_number_entry.pack()
-
-boxed_paragraph_shower_button.pack(pady=10)
 
 comment_label.pack()
 comment_entry.pack()
 
-item_type_label.pack()
-item_type_optionmenu.pack()
 
 item_number_label.pack()
 item_number_entry.pack()
 
+submit_comment_button = tk.Button(root, text="Submit Label", command=submit_comment_btn)
 submit_comment_button.pack(pady=10)
 
+# Create a new frame at the bottom of the window
+bottom_frame = tk.Frame(root)
+bottom_frame.pack(side='bottom', pady=10)
+
 # Place search widgets on the window
+search_label = tk.Label(root, text="Search for word(s):")
+search_entry = tk.Entry(root)
+search_button = tk.Button(root, text="Search", command=search_word)
 search_label.pack()
 search_entry.pack()
 search_button.pack(pady=10)
 
-filter_option = tk.StringVar(root)
-filter_option.set("All")  # Set default value
-# Step 2: Create the filter dropdown box (OptionMenu)
-filter_option_label = tk.Label(root, text="Filter:")
-filter_option_menu = tk.OptionMenu(
-    root,
-    filter_option,
-    "All",
-    "Handwritten",
-    "Not Handwritten",
-)
-
-# Place the filter dropdown box (OptionMenu) on the window
-filter_option_label.pack()
-filter_option_menu.pack()
-
+# Add the 'Export to JSON' button to the bottom frame
+export_to_json_button = tk.Button(bottom_frame, text="Export PDF", command=export_pdf_btn)
+export_to_json_button.pack(pady=10)
 
 scrollable_frame = create_scrollable_frame(root)
 

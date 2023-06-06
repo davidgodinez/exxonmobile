@@ -3,7 +3,6 @@ from PIL import Image, ImageDraw
 import io
 from PDFloader import PDFFileLoader
 from table_classes import FormRecognizer
-from boxing import boxing, draw
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -66,37 +65,6 @@ def Form_recognizer_box_shower(document_id, page_number, box_number):
     axes[1].axis("off")
     
     plt.show()
-
-
-
-
-
-def export_pdf(document_id, image_number):
-    pass
-
-    # Fetch the required data from FormRecognizer and FormRecognizerBoxedImageBlobs
-    # data = (FormRecognizer & {'document_id': document_id, 'image_number': image_number}).fetch1()
-    # boxed_image_blobs = (FormRecognizer.FormRecognizerBoxedImageBlobs & {'document_id': document_id, 'image_number': image_number}).fetch('form_recognizer_text', 'ocr_prob')
-
-    # # Prepare the output data
-    # exported_data = {
-    #     'document_id': document_id,
-    #     'image_number': image_number,
-    #     'average_ocr_prob': data['average_form_recognizer_text_confidence'],
-    #     'full_text': [{'text': str(boxed_image_blobs[0][num]), 'probability': float(boxed_image_blobs[1][num])} for num in range(len(boxed_image_blobs[0]))]
-    # }
-
-    # Export the data to a JSON file
-    # filename = f"document_Form_recognizer_{document_id}_image_{image_number}.json"
-    # with open(filename, 'w') as f:
-    #     json.dump(exported_data, f, indent=4)
-
-
-
-
-
-
-
 
 
 
