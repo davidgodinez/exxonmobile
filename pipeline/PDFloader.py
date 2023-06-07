@@ -9,6 +9,9 @@ class PDFFileLoader:
         self.folder_path = folder_path
 
     def load_files(self):
+        """
+        This function takes the files in the `files` directory and loads the file name and file path into the Documents table.
+        """
         # Navigate to the folder containing the PDF files
         os.chdir(self.folder_path)
 

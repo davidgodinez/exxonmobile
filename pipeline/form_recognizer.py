@@ -5,7 +5,16 @@ import pandas as pd
 from azure.core.credentials import AzureKeyCredential
 from azure.ai.formrecognizer import DocumentAnalysisClient, AnalyzeResult
 
+
 def analyze_document(file_path):
+    """This function takes the document stored in files and sends it to Azure's Form Recognizer using the credentials stored in credentials.json
+
+    Args:
+        file_path (str): file path generated from Documents table
+
+    Returns:
+        AnalyzeResult: an object with all the necessary parts of Form Recognizer's analysis
+    """
     # Load the credentials from a JSON file and other necessary steps
     credentials_path = os.path.abspath('credentials3.json')
     with open(credentials_path, 'r') as f:
@@ -23,12 +32,19 @@ def analyze_document(file_path):
     result = poller.result()
     
     return result
-
- 
-    
+     
 
 
 def create_paragraph_dataframe(analyze_result):
+    """This function creates a paragraph dataframe from 
+    the analyze result object. 
+
+    Args:
+        analyze_result (AnalyzeResult): object sent from Form Recognizer API
+
+    Returns:
+        dataframe: _description_
+    """
     data = []
     
     for paragraph in analyze_result.paragraphs:
@@ -53,6 +69,16 @@ def create_paragraph_dataframe(analyze_result):
 
 
 def create_style_dataframe(analyze_result):
+    """This function creates a style dataframe from 
+    the analyze result object. Analyze_result.styles contains the locations of the handwritten data
+    as recognized by Form Recognizer.
+
+    Args:
+        analyze_result (AnalyzeResult): object sent from Form Recognizer API
+
+    Returns:
+        dataframe: _description_
+    """
     data = []
 
     for style in analyze_result.styles:
@@ -74,11 +100,13 @@ def create_style_dataframe(analyze_result):
 
 
 def merge_dataframes(df_paragraph_spans, df_style_spans):
+    
     df_merged = pd.merge(df_paragraph_spans, df_style_spans, on=['offset', 'length'], how='outer')
     # Replace NaN with default values if necessary
     df_merged['confidence'].fillna(0, inplace=True)
     df_merged['is_handwritten'].fillna(False, inplace=True)
     return df_merged.reindex()
+
 
 
 def process_analyzed_result(file_path: str):
@@ -92,6 +120,3 @@ def process_analyzed_result(file_path: str):
                         & (df_merged['length']>1)
                         & (df_merged['content'].notnull()) 
                         & (df_merged['confidence'] > 0.5)].reset_index()
-
-
-

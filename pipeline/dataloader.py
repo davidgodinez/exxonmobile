@@ -10,23 +10,29 @@ import json
 
 
 def dataloader():
+    """
+    This function loads the pdf file paths into the Documents Table, and calls the Form Recognizer api to read each document. The data returned is stored in the 
+    FormRecognizer table and all its corresponding part tables.
+    """
     parent_directory = os.getcwd()
     folder_path = f'{parent_directory}/files'
-    # folder_path = f'{parent_directory}'    
     loader = PDFFileLoader(folder_path=folder_path)
     loader.load_files()
-    # print('ConvertedDocuments populated')
-    # BoxedImages.populate()
-    # print('BoxedImages populated')
-    # AzureBoxedImages.populate()
-    # print('AzureBoxedImages populated!')
     FormRecognizer.populate()
     print('Form Recognizer populated!')
 
 
-
-
 def full_image_shower(document_id, page_number, scale_factor=2.0):
+    """ This function shows the user the a full page with the handwritten text boxed in red.
+
+    Args:
+        document_id (int): document_id from FormRecognizer.PDFPages table
+        page_number (int): Page Num
+        scale_factor (float, optional): _description_. Defaults to 2.0.
+
+    Returns:
+        int: the number of pages in the document.
+    """
     image = (FormRecognizer.PDFPages & f'document_id={document_id}' & f'page_number={page_number}').fetch1('page_image')
     boxed_image_pil = Image.open(io.BytesIO(image))
     
@@ -47,6 +53,15 @@ def full_image_shower(document_id, page_number, scale_factor=2.0):
 
 
 def Form_recognizer_box_shower(document_id, page_number, box_number):
+    """This function 
+
+    Args:
+        document_id (int): document_id from FormRecognizer.BoxedImageBlobs table
+        page_number (int): page_number from FormRecognizer.BoxedImageBlobs table
+        box_number (int): box_number from FormRecognizer.BoxedImageBlobs table
+    Returns:
+
+    """
     full_boxed_image = (FormRecognizer.PDFPages & {'document_id': document_id, 'page_number': page_number}).fetch1('page_image')
     boxed_image_pil = Image.open(io.BytesIO(full_boxed_image))
     
@@ -70,4 +85,4 @@ def Form_recognizer_box_shower(document_id, page_number, box_number):
 
 
 if __name__ == '__main__':
-    print('This is main!')
+   dataloader()

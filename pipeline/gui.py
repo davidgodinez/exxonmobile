@@ -9,6 +9,10 @@ from datetime import datetime
 
 
 def search_word():
+    """
+    This function allows you to search the Form Recognizer text stored in `FormRecognizer.BoxedImageBlobs` and `FormRecognizer.BoxedImageComments` and 
+    returns the page number where the word can be found. 
+    """
     search_term = search_entry.get()
     if not search_term:
         messagebox.showwarning("Warning", "Please enter a search term.")
@@ -68,6 +72,9 @@ def search_word():
 
 
 def create_scrollable_frame(parent):
+    """
+    Creates a scrollable frame for locations returned from `search_word`. 
+    """
     canvas = tk.Canvas(parent)
     scrollbar = tk.Scrollbar(parent, orient="vertical", command=canvas.yview)
     scrollable_frame = tk.Frame(canvas)
@@ -84,6 +91,9 @@ def create_scrollable_frame(parent):
 
 
 def dataloader_btn():
+    """
+    This button calls the dataloader function. 
+    """
     dataloader()
     messagebox.showinfo("Info", "Data analyzed and JSON file created!")
 
