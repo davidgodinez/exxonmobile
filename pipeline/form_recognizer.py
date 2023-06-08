@@ -100,7 +100,16 @@ def create_style_dataframe(analyze_result):
 
 
 def merge_dataframes(df_paragraph_spans, df_style_spans):
-    
+    """This function merges the style and paragraph dataframes.
+
+    Args:
+        df_paragraph_spans (DataFrame): Dataframe
+        df_style_spans (DataFrame): Dataframe
+
+    Returns:
+        DataFrame: merged dataframe
+    """
+
     df_merged = pd.merge(df_paragraph_spans, df_style_spans, on=['offset', 'length'], how='outer')
     # Replace NaN with default values if necessary
     df_merged['confidence'].fillna(0, inplace=True)
@@ -110,6 +119,14 @@ def merge_dataframes(df_paragraph_spans, df_style_spans):
 
 
 def process_analyzed_result(file_path: str):
+    """this function calls all of the above functions and filters the result. 
+
+    Args:
+        file_path (str): pdf location. 
+
+    Returns:
+        DataFrame: merged and filtered dataframe 
+    """
     result = analyze_document(file_path)
     df_paragraph_spans = create_paragraph_dataframe(result)
     df_style_spans = create_style_dataframe(result)
